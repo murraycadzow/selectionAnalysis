@@ -1,0 +1,15 @@
+---
+title: "TajimasD EUR"
+author: "Murray Cadzow"
+date: "10/11/2014"
+output: pdf_document
+---
+
+Read in the Tajima's D
+```{r}
+TajimaD=data.frame()
+  for( i in 5:22){
+    
+    TajimaD=rbind(TajimaD,read.table(file = paste0("../EUR/EUR",i,".taj_d"), header=TRUE))
+}
+```
