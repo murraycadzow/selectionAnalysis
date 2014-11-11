@@ -7,9 +7,38 @@ output: pdf_document
 
 Read in the Tajima's D
 ```{r}
-TajimaD=data.frame()
-  for( i in 5:22){
+TD=data.frame()
+  for( i in 4:22){
     
-    TajimaD=rbind(TajimaD,read.table(file = paste0("../EUR/EUR",i,".taj_d"), header=TRUE))
+    TD=rbind(TD,read.table(file = paste0("../EUR/EUR",i,".taj_d"), header=TRUE))
 }
+```
+
+
+```{r}
+library(dplyr)
+
+library(plyr)
+
+s = ddply(TD, .(CHROM), summarise,q1=quantile(TajimaD,0.025), q2=quantile(TajimaD,0.975), m= mean(TajimaD))
+tab=s
+names(tab)=c("CHROM", "Lower Quantile","Upper Quantile","Mean")
+
+
+
+tab[,c("Lower Quantile","Mean","Upper Quantile")]= format(round(tab[,c("Lower Quantile","Mean","Upper Quantile")],digits=3),nsmall=3)
+pandoc(xtable(data.frame(tab[c(4:22),c("Lower Quantile","Mean","Upper Quantile")], row.names=NULL)),format = "markup")
+```
+
+
+```{r thirtykb_plot_setup, echo=FALSE}
+library(ggplot2)
+library(scales)
+p = ggplot(data = TD, aes(x=BIN_START, y=TajimaD), ylim=c(min(TD$TajimaD -0.5), max(TD$TajimaD + 0.5)))  + geom_point(shape = 16, colour= alpha("black", 1/5)) + facet_wrap(~CHROM, scales = "free_x")  + geom_hline(aes(yintercept= q1, colour ="quantile"), data=s,)  + geom_hline(aes(yintercept= q2, colour ="quantile"), data=s)  +geom_hline(aes(yintercept= m, colour="mean"), data=s) + scale_colour_manual("",breaks=c("mean","quantile","PPARGC1A"),values=c("blue","red","purple")) + scale_x_continuous( xlab("Chromosome Position (Mbp)")) + ylab("Tajima's D") + ggtitle("Tajima's D by Chromosome") + theme( plot.background= element_rect(colour="black",fill=NA), legend.position= c(0.75, 0.12))
+```
+
+
+
+```{r thirtykb_plot, echo=FALSE, fig.width=8}
+p
 ```
