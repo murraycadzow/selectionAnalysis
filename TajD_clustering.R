@@ -9,7 +9,7 @@ gbrTD=dbGetQuery(db, "select * from tajimasd where Population = 'GBR' and Tajima
 yriTD=dbGetQuery(db, "select * from tajimasd where Population = 'YRI' and TajimasD < 0 order by TajimasD limit 1000;")
 
 combine=function(pop1,pop2){
-  return(merge(pop1, pop2, by = c("chrom", "chrom_start")))
+  return(merge(pop1, pop2, by = c("chrom", "chrom_start"), all=TRUE))
 }
 
 overlap = function(pop1, pop2){
@@ -172,3 +172,29 @@ dist2TD = 1/distTD
 distTD
 
 tree = "(((ceu:0.577,gbr:0.577),((chb:0.518,chs:0.518),(axiom,omni:0.296):0.046):0.028),yri)"
+
+
+
+
+combine=function(pop1,pop2){
+return(merge(pop1, pop2, by = c("chrom", "chrom_start"), all=TRUE))
+}
+ax_om = combine(axiomTD, omniTD)
+ax_om_ce = combine(ax_om, ceuTD)
+ax_om_ce_cb = combine(ax_om_ce, chbTD)
+ax_om_ce_cb_cs = combine(ax_om_ce_cb, chsTD)
+ax_om_ce_cb_cs_gb = combine(ax_om_ce_cb_cs, gbrTD)
+ax_om_ce_cb_cs_gb_yr = combine(ax_om_ce_cb_cs_gb, yriTD)
+
+
+d= matrix(nrow=nrow(ax_om_ce_cb_cs_gb_yr), ncol=7)
+d[,1]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,5]),0,1)
+d[,2]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,9]),0,1)
+d[,3]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,13]),0,1)
+d[,4]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,17]),0,1)
+d[,5]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,21]),0,1)
+d[,6]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,25]),0,1)
+d[,7]=ifelse(is.na(ax_om_ce_cb_cs_gb_yr[,29]),0,1)
+colnames(d)=c("NZM","SAM","CEU","CHB","CHS","GBR","YRI")
+plot(hclust(dist(t(d), method="euclidean"), method = "single"))
+plot(hclust(dist(t(d), method="binary"), method = "single"))
