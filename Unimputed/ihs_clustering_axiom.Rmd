@@ -1,0 +1,113 @@
+---
+title: "iHS Clustering"
+author: "Murray Cadzow"
+date: "`r format(Sys.Date())`"
+output: html_document
+---
+  
+# Unimputed Axiom
+  
+```{r, echo = FALSE, warning= FALSE}
+library(RMySQL)
+drv = dbDriver("MySQL")
+axiom_db = dbConnect(drv,default.file = '~/.my.cnf', dbname="unimputed_axiom_selection")
+
+
+par(mfrow=c(1,1))
+pops <- dbGetQuery(axiom_db, "select * from population")
+pop_1kg <- pops[1:26,]
+
+pops_id = pops$id
+
+ihs = list()
+for(POP in pops_id){
+  ihs[[pops[which(POP == pops$id), "code"]]] = dbGetQuery(axiom_db, paste0("select chrom, chrom_start, norm_ihs, pop from ihs where pop = '",POP,"' order by abs(norm_ihs) desc limit 1000;"))
+  names(ihs[[POP]])[ which(names(ihs[[POP]]) == "norm_ihs")] <- paste0(pops[which(POP == pops$id), "code"],"_ihs")
+}
+
+combine=function(pop1,pop2){
+  tmp = merge(pop1, pop2, by = c("chrom", "chrom_start"), all=TRUE)
+  #names(tmp)[names(tmp) == "norm_ihs.x"] = paste0(pops[which(na.omit(tmp$pop.x) == pops$id), "code"] ,"_ihs")
+  #names(tmp)[names(tmp) == "norm_ihs.y"] = paste0(pops[which(na.omit(tmp$pop.y) == pops$id), "code"] ,"_ihs")
+  tmp =tmp[,!names(tmp) %in% c("pop.x","pop.y",'pop')]
+  return(tmp)
+}
+
+m = combine(ihs[[names(ihs)[1]] ],ihs[[names(ihs)[2] ]])
+for(POP in names(ihs)[3:length(names(ihs))]){
+  m = combine(m, ihs[[POP]])
+  #print(POP)
+}
+
+for(POP in names(ihs)){
+  m[,paste0(POP,"_ihs")] <- ifelse(is.na(m[,paste0(POP,"_ihs")]),0,1)
+}
+
+```
+
+```{r}
+plot(hclust(dist(t(m[,3:length(m)]), method="euclidean"), method = "single"), main = "iHS Clustering")
+```
+
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="euclidean"))
+```
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="canberra"))
+```
+
+
+# Unimputed Omni
+  
+```{r, echo = FALSE, warning= FALSE}
+library(RMySQL)
+drv = dbDriver("MySQL")
+omni_db = dbConnect(drv,default.file = '~/.my.cnf', dbname="unimputed_omni_selection")
+
+
+par(mfrow=c(1,1))
+pops <- dbGetQuery(omni_db, "select * from population")
+pop_1kg <- pops[1:26,]
+
+pops_id = pops$id
+
+ihs = list()
+for(POP in pops_id){
+  ihs[[pops[which(POP == pops$id), "code"]]] = dbGetQuery(omni_db, paste0("select chrom, chrom_start, norm_ihs, pop from ihs where pop = '",POP,"' order by abs(norm_ihs) desc limit 1000;"))
+  names(ihs[[POP]])[ which(names(ihs[[POP]]) == "norm_ihs")] <- paste0(pops[which(POP == pops$id), "code"],"_ihs")
+}
+
+combine=function(pop1,pop2){
+  tmp = merge(pop1, pop2, by = c("chrom", "chrom_start"), all=TRUE)
+  #names(tmp)[names(tmp) == "norm_ihs.x"] = paste0(pops[which(na.omit(tmp$pop.x) == pops$id), "code"] ,"_ihs")
+  #names(tmp)[names(tmp) == "norm_ihs.y"] = paste0(pops[which(na.omit(tmp$pop.y) == pops$id), "code"] ,"_ihs")
+  tmp =tmp[,!names(tmp) %in% c("pop.x","pop.y",'pop')]
+  return(tmp)
+}
+
+m = combine(ihs[[names(ihs)[1]] ],ihs[[names(ihs)[2] ]])
+for(POP in names(ihs)[3:length(names(ihs))]){
+  m = combine(m, ihs[[POP]])
+  #print(POP)
+}
+
+for(POP in names(ihs)){
+  m[,paste0(POP,"_ihs")] <- ifelse(is.na(m[,paste0(POP,"_ihs")]),0,1)
+}
+
+```
+
+```{r}
+plot(hclust(dist(t(m[,3:length(m)]), method="euclidean"), method = "single"), main = "iHS Clustering")
+```
+
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="euclidean"))
+```
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="canberra"))
+```

@@ -1,0 +1,109 @@
+---
+title: "nSL Clustering"
+author: "Murray Cadzow"
+date: "`r format(Sys.Date())`"
+output: html_document
+---
+  
+# Info 0.8
+  
+```{r, echo = FALSE, warning= FALSE}
+library(RMySQL)
+pw <- read.table("~/pw.txt", header=FALSE, stringsAsFactors = FALSE, comment.char = "")
+drv = dbDriver("MySQL")
+db = dbConnect(drv, user="murraycadzow", host="biocvisg0.otago.ac.nz", dbname="selection_phase3", password = as.character(pw))
+
+par(mfrow=c(1,1))
+pops <- dbGetQuery(db, "select * from population")
+pop_1kg <- pops[1:26,]
+
+pops_id = c(1:26, 28, 30)
+
+nsl = list()
+for(POP in pops_id){
+  nsl[[pops[which(POP == pops$id), "code"]]] = dbGetQuery(db, paste0("select chrom, chrom_start, norm_nsl, pop from nsl where pop = '",POP,"' order by abs(norm_nsl) desc limit 1000;"))
+}
+
+combine=function(pop1,pop2){
+  tmp = merge(pop1, pop2, by = c("chrom", "chrom_start"), all=TRUE)
+  names(tmp)[names(tmp) == "norm_nsl.x"] = paste0(pops[which(na.omit(tmp$pop.x) == pops$id), "code"] ,"_nsl")
+  names(tmp)[names(tmp) == "norm_nsl.y"] = paste0(pops[which(na.omit(tmp$pop.y) == pops$id), "code"] ,"_nsl")
+  tmp =tmp[,!names(tmp) %in% c("pop.x","pop.y")]
+  return(tmp)
+}
+
+m = combine(nsl[[names(nsl)[1]] ],nsl[[names(nsl)[2] ]])
+for(POP in names(nsl)[3:length(names(nsl))]){
+  m = combine(m, nsl[[POP]])
+  #print(POP)
+}
+
+for(POP in names(nsl)){
+  m[,paste0(POP,"_nsl")] <- ifelse(is.na(m[,paste0(POP,"_nsl")]),0,1)
+}
+
+print(table(m$AXIOM0.8_nsl, m$OMNI0.8_nsl))
+
+```
+
+```{r}
+plot(hclust(dist(t(m[,3:length(m)]), method="euclidean"), method = "single"), main = "nSL Clustering info 0.8")
+```
+
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="euclidean"))
+```
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="canberra"))
+```
+
+# Info 0.3
+
+```{r, echo = FALSE, warning = FALSE}
+par(mfrow=c(1,1))
+pops <- dbGetQuery(db, "select * from population")
+pop_1kg <- pops[1:26,]
+
+pops_id = c(1:26, 27, 29)
+
+nsl = list()
+for(POP in pops_id){
+  nsl[[pops[which(POP == pops$id), "code"]]] = dbGetQuery(db, paste0("select chrom, chrom_start, norm_nsl, pop from nsl where pop = '",POP,"' order by abs(norm_nsl) desc limit 1000;"))
+}
+
+combine=function(pop1,pop2){
+  tmp = merge(pop1, pop2, by = c("chrom", "chrom_start"), all=TRUE)
+  names(tmp)[names(tmp) == "norm_nsl.x"] = paste0(pops[which(na.omit(tmp$pop.x) == pops$id), "code"] ,"_nsl")
+  names(tmp)[names(tmp) == "norm_nsl.y"] = paste0(pops[which(na.omit(tmp$pop.y) == pops$id), "code"] ,"_nsl")
+  tmp =tmp[,!names(tmp) %in% c("pop.x","pop.y")]
+  return(tmp)
+}
+
+m = combine(nsl[[names(nsl)[1]] ],nsl[[names(nsl)[2] ]])
+for(POP in names(nsl)[3:length(names(nsl))]){
+  m = combine(m, nsl[[POP]])
+  #print(POP)
+}
+
+for(POP in names(nsl)){
+  m[,paste0(POP,"_nsl")] <- ifelse(is.na(m[,paste0(POP,"_nsl")]),0,1)
+}
+
+print(table(m$AXIOM0.3_nsl, m$OMNI0.3_nsl))
+
+```
+
+```{r}
+plot(hclust(dist(t(m[,3:length(m)]), method="euclidean"), method = "single"), main = "nSL Clustering (info 0.3)")
+```
+
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="euclidean"))
+```
+
+```{r}
+heatmap(as.matrix(m[,3:length(m)]), distfun = function(y) dist(y, method="canberra"))
+```
