@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+author: ""
+date: "`r format(Sys.Date())`"
+output: html_document
+--- 
+
+Decisions!!
+
+1. no 1 deg relatives
+2. pop n as close to 100 as possible
+3. aim to keep gout prevalence of pop close to actual prevalence
+
+
+```{r}
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+library(RColorBrewer)
+
+exclude_peeps <- read.delim('/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/coreExome/NZ_SamplesBatch1/QC_PLINKoutputs/NZ_SamplesBatch1_ExcludeReason.txt',header=TRUE)
+
+
+pheno <- read.delim('coreExome_pheno.csv', header=TRUE, sep =',')
+pheno <-as.data.table(pheno)
+setkey(pheno, "SUBJECT" )
+pheno <- pheno[!(SUBJECT %in% exclude_peeps$ExcludeID ),]
+
+
+as.data.frame(pheno[grep('1.0', pheno$ETHNICITY), .(GOUTSUM, ETHNICITY)]  %>% group_by(ETHNICITY, GOUTSUM)  %>% filter(GOUTSUM < 3) %>% tally())
+```
+
+
+```{r}
+eigen_values_NZ <- as.data.table(read.delim('/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/coreExome/NZ_SamplesBatch1/QC_PLINKoutputs/NZ_SamplesBatch1_strand_AIMs_eigen.pca.evec.tab', header=FALSE, sep = '\t'))
+colnames(eigen_values_NZ) <- c("SUBJECT",paste0("PCA",1:11))
+setkey(eigen_values_NZ,"SUBJECT")
+
+pheno_eigen <- pheno[eigen_values_NZ]
+
+pheno_eigen[grep('1.0', pheno_eigen$ETHNICITY), .(GOUTSUM, ETHNICITY, PCA1,PCA2,PCA3)]  %>% group_by(ETHNICITY)  %>% filter(GOUTSUM < 3) %>% ggplot(., aes(x = PCA1, y = PCA3, colour = ETHNICITY)) + geom_point()
+
+pheno_eigen[intersect(grep('1.0', pheno_eigen$ETHNICITY), grep('Maori|Caucasian|Samoan|Tongan|Puka|Tuval|chinese|indian|toke|taiwan', ignore.case = TRUE, pheno_eigen$ETHNICITY)), .(GOUTSUM, ETHNICITY,ETHCLASS, PCA1,PCA2,PCA3,PCA4,PCA5,PCA6,PCA7,PCA8,PCA9,PCA10)]  %>% group_by(ETHNICITY)  %>% filter(GOUTSUM < 3) %>% ggplot(., aes(x = PCA2, y = PCA3, colour = ETHNICITY, shape = ETHCLASS)) + geom_point() + scale_shape_identity()
+
+
+the_pca <- pheno_eigen[intersect(grep('1.0', pheno_eigen$ETHNICITY), grep('Maori|Caucasian|Samoan|Tongan|Puka|Tuval|chinese|indian|toke|taiwan', ignore.case = TRUE, pheno_eigen$ETHNICITY)), .(SUBJECT,GOUTSUM, ETHNICITY,ETHCLASS, PCA1,PCA2,PCA3,PCA4,PCA5,PCA6,PCA7,PCA8,PCA9,PCA10)] 
+the_pca$ETHNICITY <- tolower(the_pca$ETHNICITY)
+the_pca <-  the_pca[grep('unknown', the_pca$ETHNICITY, invert = TRUE)]
+
+myColors <- brewer.pal(12,"Paired")
+names(myColors) <- levels(factor(the_pca$ETHNICITY))
+colScale <- scale_colour_manual(name = "grp",values = myColors)
+
+pairs(the_pca[,5:14, with=FALSE], col = the_pca$ETHCLASS)
+
+ggplot(the_pca, aes(x = PCA1, y = PCA3, color = ETHNICITY)) + geom_point() + theme_bw() +colScale
+ggplot(the_pca, aes(x = PCA3, y = PCA4, color = ETHNICITY)) + geom_point() + theme_bw() +colScale
+ggplot(the_pca, aes(x = PCA3, y = PCA5, color = ETHNICITY)) + geom_point() + theme_bw() +colScale
+
+
+```
+
+
+
+```{r}
+# prevalences
+gen_gout_prev <- data.frame(pop= c("nzcau", "nzmaori", "cimaori","pukapuka","samoan","tongan"), prev = c(4, 7, 1.2, 2.6, 3, 1.5))
+
+```
+
+prevalences: (relatively arbitrary)
+NZ Cau ```r gen_gout_prev[gen_gout_prev$pop =='nzcau','prev']```%  
+NZ Maori ```r gen_gout_prev[gen_gout_prev$pop =='nzmaori','prev']```%  
+
+based on Gosling et al 2014:  
+
+CI Maori ```r gen_gout_prev[gen_gout_prev$pop =='cimaori','prev']```%  
+Pukapuka ```r gen_gout_prev[gen_gout_prev$pop =='pukapuka','prev']```%  
+Samoan ```r gen_gout_prev[gen_gout_prev$pop =='samoan','prev']```%  
+Tongan ```r gen_gout_prev[gen_gout_prev$pop =='tongan','prev']```%  
+
+```{r}
+pop_subsample <- function(pop_df = NULL, n = NULL, pop = NULL){
+  if(missing(pop_df) | missing(n)| missing(pop)){
+    stop("missing arguments")
+  }
+  # possible pop values have to match gen_gout_prev$pop 
+  n_controls_avail <- length(pop_df[GOUTSUM == 1, SUBJECT])
+  n_gout_avail <- length(pop_df[GOUTSUM == 2, SUBJECT])
+  
+  n_gout <- round(gen_gout_prev[gen_gout_prev$pop == pop, 'prev'] / 100 * n, digits = 0)
+  n_control <- n - n_gout
+  
+  if(n_controls_avail <= n_control){
+    control <- as.character(pop_df[GOUTSUM == 1, SUBJECT])
+  } else {
+    control <- as.character(sample(pop_df[GOUTSUM == 1, SUBJECT], n_control, replace = FALSE))
+  }
+  
+  #if difference in positive, need extra gouts to reach n (if possible)
+  diff <- n_control - length(control)
+  if(diff == 0){
+    if(n_gout >= n_gout_avail){
+      gout <- as.character(pop_df[GOUTSUM == 2, SUBJECT])
+    } else {
+      gout <- as.character(sample(pop_df[GOUTSUM == 2, SUBJECT],n_gout, replace = FALSE))
+    }
+  } else {
+    n_gout <- n_gout + diff
+    if(n_gout >= n_gout_avail){
+      gout <- as.character(pop_df[GOUTSUM == 2, SUBJECT])
+    } else {
+      gout <- as.character(sample(pop_df[GOUTSUM == 2, SUBJECT],n_gout, replace = FALSE))
+    }
+  }
+  if(!length(c(control,gout)) == n){
+    message("n does not equal c(control,gout)")
+  }
+  if(!length(gout) == n_gout & n >= (n_controls_avail + n_gout_avail)){
+    stop("gout does not equal n_gout")
+  }
+  return(pop_df[c(control,gout)])
+}
+
+
+```
+
+
+```{r}
+table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Caucasian' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "nzcau")$GOUTSUM)
+```
+
+```{r}
+table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 NZ Maori' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "nzmaori")$GOUTSUM)
+```
+
+```{r}
+table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 CI Maori' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "cimaori")$GOUTSUM)
+```
+
+```{r}
+table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Samoan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "samoan")$GOUTSUM)
+```
+
+```{r}
+table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Tongan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "tongan")$GOUTSUM)
+```
+
+```{r}
+pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Pukapukan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "pukapuka")
+```
