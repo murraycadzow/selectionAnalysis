@@ -19,14 +19,19 @@ library(ggplot2)
 library(tidyr)
 
 library(RColorBrewer)
+set.seed(713)
+scratch_dir = '/media/xsan/scratch/merrimanlab/murray/working_dir/'
 
-exclude_peeps <- read.delim('/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/coreExome/NZ_SamplesBatch1/QC_PLINKoutputs/NZ_SamplesBatch1_ExcludeReason.txt',header=TRUE)
+exclude_peeps <- read.delim(paste0(scratch_dir,'coreExome/QC_Batch2_NZ/QC_PLINKoutputs/NZ_SamplesBatch1_ExcludeReason.txt'),header=TRUE, stringsAsFactors = FALSE)
 
-
-pheno <- read.delim('coreExome_pheno.csv', header=TRUE, sep =',')
+vcf_samples <- read.delim(paste0(scratch_dir,'coreExome_selection/NZ/all_chr_phased_strandaligned.filt_refallele_maf0.01_hwe_checked_ExRef.samples'), stringsAsFactors = FALSE, header=FALSE)
+names(vcf_samples) <- c('FID','IID')
+vcf_samples$ID <- paste(vcf_samples$FID, vcf_samples$IID, sep = '_')
+pheno <- read.delim('coreExome_pheno.csv', header=TRUE, sep =',', stringsAsFactors = FALSE)
 pheno <-as.data.table(pheno)
 setkey(pheno, "SUBJECT" )
 pheno <- pheno[!(SUBJECT %in% exclude_peeps$ExcludeID ),]
+pheno <- pheno[SUBJECT %in% vcf_samples$IID,]
 
 
 as.data.frame(pheno[grep('1.0', pheno$ETHNICITY), .(GOUTSUM, ETHNICITY)]  %>% group_by(ETHNICITY, GOUTSUM)  %>% filter(GOUTSUM < 3) %>% tally())
@@ -34,7 +39,7 @@ as.data.frame(pheno[grep('1.0', pheno$ETHNICITY), .(GOUTSUM, ETHNICITY)]  %>% gr
 
 
 ```{r}
-eigen_values_NZ <- as.data.table(read.delim('/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/coreExome/NZ_SamplesBatch1/QC_PLINKoutputs/NZ_SamplesBatch1_strand_AIMs_eigen.pca.evec.tab', header=FALSE, sep = '\t'))
+eigen_values_NZ <- as.data.table(read.delim(paste0(scratch_dir,'coreExome/QC_Batch2_NZ/QC_PLINKoutputs/NZ_SamplesBatch1_strand_AIMs_eigen.pca.evec.tab'), header=FALSE, sep = '\t', stringsAsFactors = FALSE))
 colnames(eigen_values_NZ) <- c("SUBJECT",paste0("PCA",1:11))
 setkey(eigen_values_NZ,"SUBJECT")
 
@@ -129,25 +134,45 @@ pop_subsample <- function(pop_df = NULL, n = NULL, pop = NULL){
 
 
 ```{r}
-table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Caucasian' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "nzcau")$GOUTSUM)
+nzcau <- pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Caucasian' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "nzcau")
+nzcau_ids <- vcf_samples[vcf_samples$IID %in% nzcau$SUBJECT, 'ID']
+write.table(nzcau_ids, paste0(scratch_dir,'coreExome_selection/NZ/coreExome_nzcau_selection.txt'), sep ="\t",quote=FALSE, row.names=FALSE, col.names=FALSE)
 ```
 
 ```{r}
-table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 NZ Maori' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "nzmaori")$GOUTSUM)
+nzm <- pop_subsample(pop_df = pheno[ETHNICITY == '1.0 NZ Maori' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "nzmaori")
+nzm_ids <- vcf_samples[vcf_samples$IID %in% nzm$SUBJECT, 'ID']
+write.table(nzm_ids, paste0(scratch_dir,'coreExome_selection/NZ/coreExome_nzm_selection.txt'), sep ="\t",quote=FALSE, row.names=FALSE, col.names=FALSE)
 ```
 
 ```{r}
-table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 CI Maori' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "cimaori")$GOUTSUM)
+cim <- pop_subsample(pop_df = pheno[ETHNICITY == '1.0 CI Maori' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "cimaori")
+cim_ids <- vcf_samples[vcf_samples$IID %in% cim$SUBJECT, 'ID']
+write.table(cim_ids, paste0(scratch_dir,'coreExome_selection/NZ/coreExome_cim_selection.txt'), sep ="\t",quote=FALSE, row.names=FALSE, col.names=FALSE)
 ```
 
 ```{r}
-table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Samoan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "samoan")$GOUTSUM)
+sam <- pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Samoan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "samoan")
+sam_ids <- vcf_samples[vcf_samples$IID %in% sam$SUBJECT, 'ID']
+write.table(sam_ids, paste0(scratch_dir,'coreExome_selection/NZ/coreExome_sam_selection.txt'), sep ="\t",quote=FALSE, row.names=FALSE, col.names=FALSE)
 ```
 
 ```{r}
-table(pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Tongan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "tongan")$GOUTSUM)
+ton <- pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Tongan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "tongan")
+ton_ids <- vcf_samples[vcf_samples$IID %in% ton$SUBJECT, 'ID']
+write.table(ton_ids, paste0(scratch_dir,'coreExome_selection/NZ/coreExome_ton_selection.txt'), sep ="\t",quote=FALSE, row.names=FALSE, col.names=FALSE)
 ```
 
 ```{r}
-pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Pukapukan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "pukapuka")
+#pop_subsample(pop_df = pheno[ETHNICITY == '1.0 Pukapukan' & !is.na(GOUTSUM),.(SUBJECT,GOUTSUM, ETHNICITY)],n = 100, pop = "pukapuka")
+```
+
+```{r}
+the_pca_chosen <- the_pca[the_pca$SUBJECT %in% c(nzcau$SUBJECT,nzm$SUBJECT, cim$SUBJECT, sam$SUBJECT, ton$SUBJECT),]
+
+pairs(the_pca_chosen[,5:14, with=FALSE], col = the_pca_chosen$ETHCLASS)
+
+ggplot(the_pca_chosen, aes(x = PCA1, y = PCA3, color = ETHNICITY)) + geom_point() + theme_bw() +colScale
+ggplot(the_pca_chosen, aes(x = PCA3, y = PCA4, color = ETHNICITY)) + geom_point() + theme_bw() +colScale
+ggplot(the_pca_chosen, aes(x = PCA3, y = PCA5, color = ETHNICITY)) + geom_point() + theme_bw() +colScale
 ```
