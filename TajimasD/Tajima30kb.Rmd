@@ -1,0 +1,148 @@
+---
+title: "Tajimas D Analysis"
+author: "Murray Cadzow"
+date: "12/03/2015"
+output: html_document
+---
+
+
+
+```{r, fig.height=9, fig.width=12, warning=FALSE}
+require(knitr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(readr)
+#opts_knit$set(root.dir="/run/user//1001//gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/extract/TajD/")
+
+POP=""
+TD=data.frame()
+s=data.frame()
+make_graph=function(TD,s){
+  ggplot(data = TD, aes(x=BIN_START, y=TajimaD), ylim=c(min(TD$TajimaD -0.5), max(TD$TajimaD + 0.5)))  + 
+    geom_point(shape = 16, colour= alpha("black", 1/5)) + 
+    #geom_hex() +
+    facet_wrap(~CHROM, scales = "free_x")  + 
+    geom_hline(aes(yintercept= q1, colour ="quantile"), data=s,)  + 
+    geom_hline(aes(yintercept= q2, colour ="quantile"), data=s)  +
+    geom_hline(aes(yintercept= mean, colour="mean"), data=s) + 
+    scale_colour_manual("",breaks=c("mean","quantile"),values=c("green","red")) + 
+    scale_x_continuous( xlab("Chromosome Position (Mbp)")) + 
+    ylab("Tajima's D") + 
+    ggtitle(paste0(POP," Tajima's D by Chromosome")) + 
+    theme( plot.background= element_rect(colour="black",fill=NA), legend.position= c(0.75, 0.12)) + 
+    theme_bw()
+}
+dir="/home/murraycadzow/smb_mounts/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/extract/TajD/"
+
+get_genes_in_region= function(regions, size){
+  library(RMySQL)
+  drv = dbDriver("MySQL")
+  ensembl_core = dbConnect(drv, user="anonymous", host="ensembldb.ensembl.org", dbname="homo_sapiens_core_75_37", password="")
+  for(i in 1:length(regions[,1])){
+    chr= as.data.frame(regions)[i,1]
+    pos1= as.data.frame(regions)[i,2]
+    pos2 = pos1+size
+    
+    print(dbGetQuery(ensembl_core, paste0("select s.name, g.seq_region_start, g.seq_region_end, x.display_label, s.coord_system_id from  gene g, seq_region s, xref x where s.name =", chr, " AND (", pos1 ," > g.seq_region_start AND ",pos2,"  < g.seq_region_end OR ",pos1," BETWEEN g.seq_region_start AND g.seq_region_end OR ",pos2," BETWEEN g.seq_region_start AND g.seq_region_end)  AND g.display_xref_id = x.xref_id group by x.display_label AND s.seq_region_id = g.seq_region_id order by s.name *1, g.seq_region_start")))
+  }
+}
+
+for( POP in c("AXIOM","OMNI","CEU","CHB","CHS","GBR","YRI")){
+  print(POP)
+  
+  TD=data.frame()
+  for( i in 1:22){
+    TD=rbind(TD,read.table(file = paste0(dir,POP,i,".taj_d"), header=TRUE))
+  }
+  s = TD %>% group_by(CHROM) %>% summarise(mean=mean(TajimaD), sd=sd(TajimaD), min=min(TajimaD), max=max(TajimaD), q1 = quantile(TajimaD, 0.01), q2 = quantile(TajimaD, 0.99))
+  print(as.data.frame(round(s, digits=2)))
+  plot(make_graph(TD,s))
+  top = TD %>% arrange(TajimaD) %>% head(n=10)
+    #filter(min(TajimaD) == TajimaD | max(TajimaD) == TajimaD) 
+  print(as.data.frame(top))
+  get_genes_in_region(as.data.frame(top), size=30000)
+}
+
+```
+
+# Clustering of populations
+
+Distance matrix is created from taking 1000 most negative TD results and finding the number of windows that overlap between each population
+
+```{r cluster_pop, warning=FALSE}
+library("RMySQL")
+
+drv=dbDriver(drvName = "MySQL")
+db=dbConnect(drv, host="127.0.0.1", user="murray", db="selection")
+axiomTD= dbGetQuery(db, "select * from tajimasd where Population = 'AXIOM' and TajimasD < 0 order by TajimasD limit 1000;")
+omniTD=dbGetQuery(db, "select * from tajimasd where Population = 'OMNI' and TajimasD < 0 order by TajimasD limit 1000;")
+ceuTD=dbGetQuery(db, "select * from tajimasd where Population = 'CEU' and TajimasD < 0 order by TajimasD limit 1000;")
+chbTD=dbGetQuery(db, "select * from tajimasd where Population = 'CHB' and TajimasD < 0 order by TajimasD limit 1000;")
+chsTD=dbGetQuery(db, "select * from tajimasd where Population = 'CHS' and TajimasD < 0 order by TajimasD limit 1000;")
+gbrTD=dbGetQuery(db, "select * from tajimasd where Population = 'GBR' and TajimasD < 0 order by TajimasD limit 1000;")
+yriTD=dbGetQuery(db, "select * from tajimasd where Population = 'YRI' and TajimasD < 0 order by TajimasD limit 1000;")
+
+overlap = function(pop1, pop2){
+  return(length(merge(pop1, pop2, by = c("chrom", "chrom_start"))[,1]))
+}
+
+axiom_omniTD = overlap(axiomTD,omniTD)
+axiom_ceuTD = overlap(axiomTD,ceuTD)
+axiom_chbTD =overlap(axiomTD,chbTD)
+axiom_chsTD = overlap(axiomTD,chsTD)
+axiom_gbrTD = overlap(axiomTD,gbrTD) 
+axiom_yriTD = overlap(axiomTD,yriTD)
+
+omni_ceuTD = overlap(omniTD,ceuTD)
+omni_chbTD = overlap(omniTD,chbTD)
+omni_chsTD = overlap(omniTD,chsTD)
+omni_gbrTD = overlap(omniTD,gbrTD)
+omni_yriTD = overlap(omniTD,yriTD)
+
+ceu_chbTD = overlap(ceuTD,chbTD)
+ceu_chsTD = overlap(ceuTD,chsTD)
+ceu_gbrTD = overlap(ceuTD,gbrTD)
+ceu_yriTD = overlap(ceuTD,yriTD)
+
+chb_chsTD = overlap(chbTD, chsTD)
+chb_gbrTD = overlap(chbTD, gbrTD)
+chb_yriTD = overlap(chbTD, yriTD)
+
+chs_gbrTD = overlap(chsTD, gbrTD)
+chs_yriTD = overlap(chsTD, yriTD)
+
+gbr_yriTD = overlap(gbrTD,yriTD)
+
+# make distance matrix
+dist = matrix(nrow = 7, ncol=7)
+colnames(dist) = c('axiom','omni','ceu','chb','chs','gbr','yri')
+rownames(dist) = c('axiom','omni','ceu','chb','chs','gbr','yri')
+dist[,1]= c(0,axiom_omniTD,axiom_ceuTD,axiom_chbTD,axiom_chsTD,axiom_gbrTD,axiom_yriTD)
+dist[,2]= c(axiom_omniTD,0,omni_ceuTD,omni_chbTD,omni_chsTD,omni_gbrTD,omni_yriTD)
+dist[,3]= c(axiom_ceuTD,omni_ceuTD,0,ceu_chbTD,ceu_chsTD,ceu_gbrTD,ceu_yriTD)
+dist[,4]= c(axiom_ceuTD,omni_ceuTD,ceu_chbTD,0,chb_chsTD,chb_gbrTD,chb_yriTD)
+dist[,5]= c(axiom_ceuTD,omni_ceuTD,ceu_chbTD,chb_chsTD,0,chs_gbrTD,chs_yriTD)
+dist[,6]= c(axiom_ceuTD,omni_ceuTD,ceu_chbTD,chb_chsTD,chs_gbrTD,0,gbr_yriTD)
+dist[1,]=t(dist[,1])
+dist[2,]=t(dist[,2])
+dist[3,]=t(dist[,3])
+dist[4,]=t(dist[,4])
+dist[5,]=t(dist[,5])
+dist[6,]=t(dist[,6])
+dist2 = 1/dist
+dist2[1,1]=0;dist2[2,2]=0;dist2[3,3]=0;dist2[4,4]=0;dist2[5,5]=0;dist2[6,6]=0;dist2[7,7]=0
+plot(hclust(dist(dist2)))
+```
+
+```{r dist, warning=FALSE}
+dist
+```
+
+
+```{r venn,warning=FALSE}
+#intersection of axiom and omni TAJIMAs D
+library(VennDiagram)
+grid.newpage()
+draw.pairwise.venn(length(axiomTD[,1]),length(omniTD[,1]),length(merge(axiomTD, omniTD, by = c("chrom", "chrom_start"))[,1]), c("NZ Maori", "Samoan"), col = c("red","blue"), fill = c("red","blue"))
+```
