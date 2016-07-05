@@ -26,7 +26,7 @@ pop_1kg <- pops[1:26,]
 #             )ENGINE = INNODB;")
 
 
-daf_path <- "/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/AF/"
+daf_path <- "/media/scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/AF/"
 for (pop in pops$code){
   for(chr in 1:22){
     print(paste0(pop,chr))
@@ -58,7 +58,7 @@ for (pop in pops$code){
 #             )ENGINE = INNODB;")
 
 
-kaks_path <- "/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/Phase3_selection_results/KaKs/" 
+kaks_path <- "/media/scratch/merrimanlab/murray/working_dir/Phase3_selection_results/KaKs/" 
 for (pop in pop_1kg[,2]){
   for(chr in 1:22){
     tmp <- read.table(paste0(kaks_path,pop,chr,".kaks"), header=TRUE, stringsAsFactors = FALSE, sep="\t")
@@ -86,7 +86,7 @@ for (pop in c("AXIOM","OMNI")){
 ##
 # tajimas d
 ##
-tajd_path <- "/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/TD/"
+tajd_path <- "/media/scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/TD/"
 window_info <- dbGetQuery(axiom_db, 'select * from window_info')
 for (pop in pops$code){
   for(chr in 1:22){
@@ -126,7 +126,7 @@ for (pop in pops$code){
 #             FOREIGN KEY (window_id)
 #               references window_info (id)
 #            ) ENGINE = INNODB;")
-faw_path <- "/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/FAWH/"
+faw_path <- "/media/scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/FAWH/"
 for (pop in pops$code){
   for(chr in 1:22){
     print(paste0(pop,chr))
@@ -145,7 +145,7 @@ for (pop in pops$code){
 
 #ihs
 #<locusID> <physicalPos> <'1' freq> <ihh1> <ihh0> <unstandardized iHS> <norm> <crit>
-ihs_path <- "/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/iHS/"
+ihs_path <- "/media/scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/iHS/"
 for (pop in pops$code){
   for(chr in 1:22){
     print(paste0(pop,chr))
@@ -179,7 +179,7 @@ for (pop in pops$code){
 #               references population (id)
 #             )ENGINE = INNODB;")
 # <locusID> <physicalPos> <'1' freq> <ihh1> <ihh0> <unstandardized iHS> <norm> <crit>
-  nsl_path <- "/run/user/1000/gvfs/smb-share:server=biocldap,share=scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/nSL/"
+  nsl_path <- "/media/scratch/merrimanlab/murray/working_dir/nesi_retrieved/Unimputed/Axiom/nSL/"
 for (pop in pops$code){
   for(chr in 1:22){
     print(paste0(pop,chr))
