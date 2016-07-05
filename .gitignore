@@ -23,9 +23,11 @@ vignettes/*.pdf
 .Rproj.user
 
 #id lists
-
 coreExome_cim_selection.txt
 coreExome_nzcau_selection.txt
 coreExome_nzm_selection.txt
 coreExome_ton_selection.txt
 coreExome_sam_selection.txt
+
+# html files
+*.html
