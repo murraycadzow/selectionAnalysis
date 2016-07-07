@@ -1,0 +1,432 @@
+---
+title: "coreExome selection analysis"
+author: ""
+date: "`r format(Sys.Date())`"
+output: html_document
+
+--- 
+
+```{r setup, echo = FALSE, message=FALSE}
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(GenomicRanges)
+data_dir <- '/media/xsan/scratch/merrimanlab/murray/working_dir/coreExome_selection/NZ/'
+
+
+get_faw <- function(faw_path, pop){
+  faw <- list()
+  for(i in 1:22){
+    a= read.table(paste0(faw_path,pop,i,'.faw'), header=FALSE, skip=5)
+    names(a)=c("RefStart","Refend","RefMid","chrom_start","chrom_end","Midpoint","NumSites","Missing","S","Eta","Eta_E","Pi","FuLi_D","FuLi_F","FayWu_H")
+    b=a[a$FayWu_H != "NaN",]
+    b$POP=as.factor(pop)
+    b$chrom <- i
+    faw[[i]] <- b[,c("chrom","chrom_start","chrom_end", "FayWu_H","POP")]
+  }
+  return(do.call(rbind,faw))
+  
+}
+
+
+get_td <- function(td_path, pop){
+  td <- list()
+  for(i in 1:22){
+    a= read.table(paste0(td_path,pop,i,'.taj_d'), header=TRUE)
+    names(a)=c("chrom", "chrom_start","NumSites","TajimaD")
+    b=a[a$TajimaD != "NaN",]
+    b$POP=as.factor(pop)
+    b$chrom <- i
+    b$chrom_end <- b$chrom_start + b[2,"chrom_start"] - b[1,"chrom_start"]
+    td[[i]] <- b[,c("chrom","chrom_start","chrom_end", "TajimaD","POP")]
+  }
+  return(do.call(rbind,td))
+  
+}
+
+get_nsl <- function(nsl_path, pop){
+  nsl <- list()
+  for(i in 1:22){
+    a= read.table(paste0(nsl_path,pop,'_',i,'.nsl.out.100bins.norm'), header=TRUE)
+    names(a)=c("marker","chrom_start","freq_1","sL1","sL0","unstd_nsl", "std_nsl", "significant")
+    a$POP=as.factor(pop)
+    a$chrom <- i
+    a$chrom_end <- a$chrom_start + a[2,"chrom_start"] - a[1,"chrom_start"]
+    nsl[[i]] <-a[,c("chrom","chrom_start","chrom_end", "std_nsl","POP", "significant")]
+  }
+  return(do.call(rbind,nsl))
+  
+}
+
+
+get_ihs <- function(ihs_path, pop){
+  ihs <- list()
+  for(i in 1:22){
+    a= read.table(paste0(ihs_path,pop,'_',i,'.ihs.out.100bins.norm'), header=TRUE)
+    names(a)=c("marker","chrom_start","freq_1","ihh1","ihh0","unstd_ihs", "std_ihs", "significant")
+    a$POP=as.factor(pop)
+    a$chrom <- i
+    a$chrom_end <- a$chrom_start + a[2,"chrom_start"] - a[1,"chrom_start"]
+    ihs[[i]] <- a[,c("chrom","chrom_start","chrom_end", "std_ihs","POP", "significant")]
+  }
+  return(do.call(rbind,ihs))
+  
+}
+
+
+lsa.gwas.cluster<-function (gwas_data) {
+  # Cluster GWAS data to identify regions of association
+  # https://github.com/MerrimanLab/ResequencingAnalysis/blob/master/LociSelectionApp/lsa_logic.R
+  lambda_cluster<-function (position,eps=0.2,minPts=1) {
+    dbscan::dbscan(as.matrix(position)/1000000,eps=eps,minPts= minPts)
+  }
+  gwas_data[,ClusterID:= lambda_cluster(position),by= c("chrom")]
+  return (gwas_data)
+}
+
+sum_diff <- function(pop1GR, pop2GR){
+  return( sum( width( intersect( pop1GR, pop2GR) ) ) )
+}
+
+calc_dist_mat <- function(popList){
+  dm <- matrix(nrow = length(popList), ncol = length(popList))
+  rownames(dm) <- names(popList)
+  colnames(dm) <- names(popList)
+  for(row in 1:length(popList)){
+    for(col in 1:length(popList)){
+      if(row == col){ dm[row,col] <- 0
+      } else {
+        dm[row,col] <- 1 / sum_diff(popList[[row]],popList[[col]])
+      }
+    }
+  }
+}
+```
+
+```{r load data}
+nzcau <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"nzcau"), td = get_td(paste0(data_dir, "tajimasd/"), 'nzcau'), ihs = get_ihs(paste0(data_dir,"ihs/nzcau/"), 'nzcau'), nsl = get_nsl(paste0(data_dir,"nsl/nzcau/"), 'nzcau'))
+nzm <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"nzm"), td = get_td(paste0(data_dir, "tajimasd/"), 'nzm'), ihs = get_ihs(paste0(data_dir,"ihs/nzm/"), 'nzm'), nsl = get_nsl(paste0(data_dir,"nsl/nzm/"), 'nzm'))
+cim <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"cim"), td = get_td(paste0(data_dir, "tajimasd/"), 'cim'), ihs = get_ihs(paste0(data_dir,"ihs/cim/"), 'cim'), nsl = get_nsl(paste0(data_dir,"nsl/cim/"), 'cim'))
+ton <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"ton"), td = get_td(paste0(data_dir, "tajimasd/"), 'ton'), ihs = get_ihs(paste0(data_dir,"ihs/ton/"), 'ton'), nsl = get_nsl(paste0(data_dir,"nsl/ton/"), 'ton'))
+sam <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"sam"), td = get_td(paste0(data_dir, "tajimasd/"), 'sam'), ihs = get_ihs(paste0(data_dir,"ihs/sam/"), 'sam'), nsl = get_nsl(paste0(data_dir,"nsl/sam/"), 'sam'))
+```
+
+# Fay and Wu's H
+
+## nzcau
+```{r nzc faw}
+ggplot(nzcau[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(nzcau[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
+```
+
+## nzm
+```{r nzm faw}
+ggplot(nzm[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(nzm[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
+```
+
+## cim
+```{r cim faw}
+ggplot(cim[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(cim[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
+```
+
+## ton
+```{r ton faw}
+ggplot(ton[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(ton[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
+```
+
+## sam
+```{r sam faw}
+ggplot(sam[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(sam[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
+```
+
+## combined boxplot
+```{r}
+combined_faw <- rbind(nzcau[['faw']], nzm[['faw']], cim[['faw']], ton[['faw']], sam[['faw']])
+ggplot(combined_faw, aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot(aes(colour = factor(chrom))) + facet_wrap(~POP)
+
+```
+
+```{r faywuh clustering}
+nzcau_faw <- nzcau[['faw']]  %>% arrange(FayWu_H) 
+nzcau_faw <- nzcau_faw[1:(0.01 * nrow(nzcau_faw)), ]
+nzcau_fawGR <- GRanges(seqnames = nzcau_faw$chrom, IRanges(start = nzcau_faw$chrom_start, end = nzcau_faw$chrom_end), fawh = nzcau_faw$FayWu_H )
+
+
+nzm_faw <- nzm[['faw']]  %>% arrange(FayWu_H) 
+nzm_faw <- nzm_faw[1:(0.01 * nrow(nzm_faw)), ]
+nzm_fawGR <- GRanges(seqnames = nzm_faw$chrom, IRanges(start = nzm_faw$chrom_start, end = nzm_faw$chrom_end), fawh = nzm_faw$FayWu_H )
+
+cim_faw <- cim[['faw']]  %>% arrange(FayWu_H) 
+cim_faw <- cim_faw[1:(0.01 * nrow(cim_faw)), ]
+cim_fawGR <- GRanges(seqnames = cim_faw$chrom, IRanges(start = cim_faw$chrom_start, end = cim_faw$chrom_end), fawh = cim_faw$FayWu_H )
+
+ton_faw <- ton[['faw']]  %>% arrange(FayWu_H) 
+ton_faw <- ton_faw[1:(0.01 * nrow(ton_faw)), ]
+ton_fawGR <- GRanges(seqnames = ton_faw$chrom, IRanges(start = ton_faw$chrom_start, end = ton_faw$chrom_end), fawh = ton_faw$FayWu_H )
+
+sam_faw <- sam[['faw']]  %>% arrange(FayWu_H) 
+sam_faw <- sam_faw[1:(0.01 * nrow(sam_faw)), ]
+sam_fawGR <- GRanges(seqnames = sam_faw$chrom, IRanges(start = sam_faw$chrom_start, end = sam_faw$chrom_end), fawh = sam_faw$FayWu_H )
+
+pops <- c('nzcau','nzm','cim','ton','sam')
+popList <- list(nzcau = nzcau_fawGR,
+                nzm = nzm_fawGR, 
+                cim = cim_fawGR,
+                ton = ton_fawGR,
+                sam = sam_fawGR
+                )
+
+diff_mat <-calc_diff_mat(popList)
+plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
+heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
+```
+
+
+# Tajima's D
+
+## nzcau
+```{r nzc td}
+ggplot(nzcau[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(nzcau[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
+```
+
+## nzm
+```{r nzm td}
+ggplot(nzm[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(nzm[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
+```
+
+## cim
+```{r cim td}
+ggplot(cim[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(cim[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
+```
+
+## ton
+```{r ton td}
+ggplot(ton[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(ton[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
+```
+
+## sam
+```{r sam td}
+ggplot(sam[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+ggplot(sam[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
+```
+
+
+## combined
+## combined boxplot
+```{r}
+combined_td <- rbind(nzcau[['td']], nzm[['td']], cim[['td']], ton[['td']], sam[['td']])
+ggplot(combined_td, aes(y = TajimaD, x = factor(chrom))) + geom_boxplot(aes(colour = factor(chrom))) + facet_wrap(~POP)
+
+```
+
+
+```{r td clustering}
+nzcau_td <- nzcau[['td']]  %>% arrange(TajimaD) 
+nzcau_td <- nzcau_td[1:(0.01 * nrow(nzcau_td)), ]
+nzcau_tdGR <- GRanges(seqnames = nzcau_td$chrom, IRanges(start = nzcau_td$chrom_start, end = nzcau_td$chrom_end), tdh = nzcau_td$TajimaD )
+
+
+nzm_td <- nzm[['td']]  %>% arrange(TajimaD) 
+nzm_td <- nzm_td[1:(0.01 * nrow(nzm_td)), ]
+nzm_tdGR <- GRanges(seqnames = nzm_td$chrom, IRanges(start = nzm_td$chrom_start, end = nzm_td$chrom_end), tdh = nzm_td$TajimaD )
+
+cim_td <- cim[['td']]  %>% arrange(TajimaD) 
+cim_td <- cim_td[1:(0.01 * nrow(cim_td)), ]
+cim_tdGR <- GRanges(seqnames = cim_td$chrom, IRanges(start = cim_td$chrom_start, end = cim_td$chrom_end), tdh = cim_td$TajimaD )
+
+ton_td <- ton[['td']]  %>% arrange(TajimaD) 
+ton_td <- ton_td[1:(0.01 * nrow(ton_td)), ]
+ton_tdGR <- GRanges(seqnames = ton_td$chrom, IRanges(start = ton_td$chrom_start, end = ton_td$chrom_end), tdh = ton_td$TajimaD )
+pops <- c('nzcau','nzm','cim','ton','sam')
+popList <- list(nzcau = nzcau_tdGR,
+                nzm = nzm_tdGR, 
+                cim = cim_tdGR,
+                ton = ton_tdGR,
+                sam = sam_tdGR
+                )
+
+diff_mat <-calc_diff_mat(popList)
+plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
+heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
+```
+
+# iHS
+
+## nzcau
+```{r}
+ggplot(nzcau[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+
+## nzm
+```{r}
+ggplot(nzm[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## cim
+```{r}
+ggplot(cim[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## ton
+```{r}
+ggplot(ton[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## sam
+```{r}
+ggplot(sam[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+
+##combined
+```{r}
+combined_ihs <- rbind(nzcau[['ihs']],nzm[['ihs']],cim[['ihs']], ton[['ihs']], sam[['ihs']])  %>%  filter(significant ==1)
+
+ggplot(combined_ihs, aes(x = chrom_start, y = abs(std_ihs), color = as.factor(POP), alpha=0.3)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+png(filename = 'ihs_combined.png', width = 2000, height = 1500)
+last_plot()
+dev.off()
+
+```
+
+```{r}
+
+nzcau_sig_ihsGR <- GRanges(seqnames = nzcau[['ihs']]$chrom, IRanges(start = nzcau[['ihs']]$chrom_start, end = nzcau[['ihs']]$chrom_end), significant_ihs = nzcau[['ihs']]$significant)
+
+nzm_sig_ihsGR <- GRanges(seqnames = nzm[['ihs']]$chrom, IRanges(start = nzm[['ihs']]$chrom_start, end = nzm[['ihs']]$chrom_end), significant_ihs = nzm[['ihs']]$significant)
+
+cim_sig_ihsGR <- GRanges(seqnames = cim[['ihs']]$chrom, IRanges(start = cim[['ihs']]$chrom_start, end = cim[['ihs']]$chrom_end), significant_ihs = cim[['ihs']]$significant)
+
+ton_sig_ihsGR <- GRanges(seqnames = ton[['ihs']]$chrom, IRanges(start = ton[['ihs']]$chrom_start, end = ton[['ihs']]$chrom_end), significant_ihs = ton[['ihs']]$significant)
+
+sam_sig_ihsGR <- GRanges(seqnames = sam[['ihs']]$chrom, IRanges(start = sam[['ihs']]$chrom_start, end = sam[['ihs']]$chrom_end), significant_ihs = sam[['ihs']]$significant)
+
+
+pops <- c('nzcau','nzm','cim','ton','sam')
+popList <- list(nzcau = nzcau_sig_ihsGR[nzcau_sig_ihsGR$significant_ihs == 1],
+                nzm = nzm_sig_ihsGR[nzm_sig_ihsGR$significant_ihs ==1], 
+                cim = cim_sig_ihsGR[cim_sig_ihsGR$significant_ihs ==1],
+                ton = ton_sig_ihsGR[ton_sig_ihsGR$significant_ihs ==1],
+                sam = sam_sig_ihsGR[sam_sig_ihsGR$significant_ihs ==1]
+                )
+
+diff_mat <-calc_diff_mat(popList)
+plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
+heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
+
+
+
+```
+
+
+```{r ihs clustering, eval = FALSE, echo= FALSE}
+library(GenomicRanges)
+cau_ihs <- combined_ihs %>% filter(POP == "nzcau" & abs(std_ihs) > 3)
+nzm_ihs <- combined_ihs %>% filter(POP == "nzm" & abs(std_ihs) > 3)
+cim_ihs <- combined_ihs %>% filter(POP == "cim" & abs(std_ihs) > 3)
+ton_ihs <- combined_ihs %>% filter(POP == "ton" & abs(std_ihs) > 3)
+sam_ihs <- combined_ihs %>% filter(POP == "sam" & abs(std_ihs) > 3)
+
+tmp <- rbindlist(apply(cau_ihs[,1:3], 1, function(x){return(data.frame(chrom = rep(x[1], length(x[2]:x[3])), position = x[2]:x[3] ) )} ))
+
+cau_clust <- lsa.gwas.cluster(as.data.table(tmp))
+cau_regions <- cau_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+cau_regions$POP <- "nzcau"
+
+nzm_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'nzm' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+nzm_regions <- nzm_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+nzm_regions$POP <- "nzm"
+
+cim_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'cim' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+cim_regions <- cim_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+cim_regions$POP <- "cim"
+
+ton_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'ton' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+ton_regions <- ton_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+ton_regions$POP <- "ton"
+
+sam_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'sam' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+sam_regions <- sam_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+sam_regions$POP <- "sam"
+
+
+```
+
+
+
+
+
+# nSL
+
+## nzcau
+```{r}
+ggplot(nzcau[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## nzm
+```{r}
+ggplot(nzm[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## cim
+```{r}
+ggplot(cim[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## ton
+```{r}
+ggplot(ton[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+## sam
+```{r}
+ggplot(sam[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+```
+
+
+##combined
+```{r}
+combined_nsl <- rbind(nzcau[['nsl']],nzm[['nsl']],cim[['nsl']], ton[['nsl']], sam[['nsl']])  %>%  filter(significant ==1)
+
+ggplot(combined_nsl, aes(x = chrom_start, y = abs(std_nsl), color = as.factor(POP), alpha=0.3)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
+png(filename = 'nsl_combined.png', width = 2000, height = 1500)
+last_plot()
+dev.off()
+
+```
+
+
+```{r}
+nzcau_sig_nslGR <- GRanges(seqnames = nzcau[['nsl']]$chrom, IRanges(start = nzcau[['nsl']]$chrom_start, end = nzcau[['nsl']]$chrom_end), significant_nsl = nzcau[['nsl']]$significant)
+
+nzm_sig_nslGR <- GRanges(seqnames = nzm[['nsl']]$chrom, IRanges(start = nzm[['nsl']]$chrom_start, end = nzm[['nsl']]$chrom_end), significant_nsl = nzm[['nsl']]$significant)
+
+cim_sig_nslGR <- GRanges(seqnames = cim[['nsl']]$chrom, IRanges(start = cim[['nsl']]$chrom_start, end = cim[['nsl']]$chrom_end), significant_nsl = cim[['nsl']]$significant)
+
+ton_sig_nslGR <- GRanges(seqnames = ton[['nsl']]$chrom, IRanges(start = ton[['nsl']]$chrom_start, end = ton[['nsl']]$chrom_end), significant_nsl = ton[['nsl']]$significant)
+
+sam_sig_nslGR <- GRanges(seqnames = sam[['nsl']]$chrom, IRanges(start = sam[['nsl']]$chrom_start, end = sam[['nsl']]$chrom_end), significant_nsl = sam[['nsl']]$significant)
+
+
+pops <- c('nzcau','nzm','cim','ton','sam')
+popList <- list(nzcau = nzcau_sig_nslGR[nzcau_sig_nslGR$significant_nsl == 1],
+                nzm = nzm_sig_nslGR[nzm_sig_nslGR$significant_nsl ==1], 
+                cim = cim_sig_nslGR[cim_sig_nslGR$significant_nsl ==1],
+                ton = ton_sig_nslGR[ton_sig_nslGR$significant_nsl ==1],
+                sam = sam_sig_nslGR[sam_sig_nslGR$significant_nsl ==1]
+                )
+
+diff_mat <-calc_diff_mat(popList)
+plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
+heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
+
+```
