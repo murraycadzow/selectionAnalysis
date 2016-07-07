@@ -47,7 +47,7 @@ get_td <- function(td_path, pop){
 get_nsl <- function(nsl_path, pop){
   nsl <- list()
   for(i in 1:22){
-    a= read.table(paste0(nsl_path,pop,'_',i,'.nsl.out.100bins.norm'), header=TRUE)
+    a= read.table(paste0(nsl_path,pop,'_',i,'.nsl.out.100bins.norm'), header=FALSE)
     names(a)=c("marker","chrom_start","freq_1","sL1","sL0","unstd_nsl", "std_nsl", "significant")
     a$POP=as.factor(pop)
     a$chrom <- i
@@ -62,7 +62,7 @@ get_nsl <- function(nsl_path, pop){
 get_ihs <- function(ihs_path, pop){
   ihs <- list()
   for(i in 1:22){
-    a= read.table(paste0(ihs_path,pop,'_',i,'.ihs.out.100bins.norm'), header=TRUE)
+    a= read.table(paste0(ihs_path,pop,'_',i,'.ihs.out.100bins.norm'), header=FALSE)
     names(a)=c("marker","chrom_start","freq_1","ihh1","ihh0","unstd_ihs", "std_ihs", "significant")
     a$POP=as.factor(pop)
     a$chrom <- i
@@ -74,21 +74,22 @@ get_ihs <- function(ihs_path, pop){
 }
 
 
-lsa.gwas.cluster<-function (gwas_data) {
-  # Cluster GWAS data to identify regions of association
-  # https://github.com/MerrimanLab/ResequencingAnalysis/blob/master/LociSelectionApp/lsa_logic.R
-  lambda_cluster<-function (position,eps=0.2,minPts=1) {
-    dbscan::dbscan(as.matrix(position)/1000000,eps=eps,minPts= minPts)
+get_kaks <- function(kaks_path, pop){
+  kaks <- list()
+  for(i in 1:22){
+    a= read.table(paste0(kaks_path,pop,i,'.kaks'), header=TRUE)
+    a$chrom <- i
+    a$POP=as.factor(pop)
+    kaks[[i]]<- a
   }
-  gwas_data[,ClusterID:= lambda_cluster(position),by= c("chrom")]
-  return (gwas_data)
+  return(do.call(rbind,kaks))
 }
 
 sum_diff <- function(pop1GR, pop2GR){
   return( sum( width( intersect( pop1GR, pop2GR) ) ) )
 }
 
-calc_dist_mat <- function(popList){
+calc_diff_mat <- function(popList){
   dm <- matrix(nrow = length(popList), ncol = length(popList))
   rownames(dm) <- names(popList)
   colnames(dm) <- names(popList)
@@ -100,15 +101,42 @@ calc_dist_mat <- function(popList){
       }
     }
   }
+  return(dm)
 }
 ```
 
 ```{r load data}
-nzcau <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"nzcau"), td = get_td(paste0(data_dir, "tajimasd/"), 'nzcau'), ihs = get_ihs(paste0(data_dir,"ihs/nzcau/"), 'nzcau'), nsl = get_nsl(paste0(data_dir,"nsl/nzcau/"), 'nzcau'))
-nzm <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"nzm"), td = get_td(paste0(data_dir, "tajimasd/"), 'nzm'), ihs = get_ihs(paste0(data_dir,"ihs/nzm/"), 'nzm'), nsl = get_nsl(paste0(data_dir,"nsl/nzm/"), 'nzm'))
-cim <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"cim"), td = get_td(paste0(data_dir, "tajimasd/"), 'cim'), ihs = get_ihs(paste0(data_dir,"ihs/cim/"), 'cim'), nsl = get_nsl(paste0(data_dir,"nsl/cim/"), 'cim'))
-ton <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"ton"), td = get_td(paste0(data_dir, "tajimasd/"), 'ton'), ihs = get_ihs(paste0(data_dir,"ihs/ton/"), 'ton'), nsl = get_nsl(paste0(data_dir,"nsl/ton/"), 'ton'))
-sam <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"sam"), td = get_td(paste0(data_dir, "tajimasd/"), 'sam'), ihs = get_ihs(paste0(data_dir,"ihs/sam/"), 'sam'), nsl = get_nsl(paste0(data_dir,"nsl/sam/"), 'sam'))
+nzcau <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"nzcau"), 
+             td = get_td(paste0(data_dir, "tajimasd/"), 'nzcau'), 
+             ihs = get_ihs(paste0(data_dir,"ihs/nzcau/"), 'nzcau'), 
+             nsl = get_nsl(paste0(data_dir,"nsl/nzcau/"), 'nzcau'),
+             kaks = get_kaks(paste0(data_dir,"kaks/"), 'nzcau')
+)
+
+nzm <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"nzm"), 
+           td = get_td(paste0(data_dir, "tajimasd/"), 'nzm'), 
+           ihs = get_ihs(paste0(data_dir,"ihs/nzm/"), 'nzm'), 
+           nsl = get_nsl(paste0(data_dir,"nsl/nzm/"), 'nzm'),
+           kaks = get_kaks(paste0(data_dir,"kaks/"), 'nzm')
+)
+
+cim <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"cim"), 
+           td = get_td(paste0(data_dir, "tajimasd/"), 'cim'), 
+           ihs = get_ihs(paste0(data_dir,"ihs/cim/"), 'cim'), 
+           nsl = get_nsl(paste0(data_dir,"nsl/cim/"), 'cim'),
+           kaks = get_kaks(paste0(data_dir,"kaks/"), 'cim'))
+
+ton <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"ton"), 
+           td = get_td(paste0(data_dir, "tajimasd/"), 'ton'), 
+           ihs = get_ihs(paste0(data_dir,"ihs/ton/"), 'ton'), 
+           nsl = get_nsl(paste0(data_dir,"nsl/ton/"), 'ton'),
+           kaks = get_kaks(paste0(data_dir,"kaks/"), 'ton'))
+
+sam <-list(faw = get_faw(paste0(data_dir,"faywuh/"),"sam"), 
+           td = get_td(paste0(data_dir, "tajimasd/"), 'sam'), 
+           ihs = get_ihs(paste0(data_dir,"ihs/sam/"), 'sam'), 
+           nsl = get_nsl(paste0(data_dir,"nsl/sam/"), 'sam'),
+           kaks = get_kaks(paste0(data_dir,"kaks/"), 'sam'))
 ```
 
 # Fay and Wu's H
@@ -178,7 +206,7 @@ popList <- list(nzcau = nzcau_fawGR,
                 cim = cim_fawGR,
                 ton = ton_fawGR,
                 sam = sam_fawGR
-                )
+)
 
 diff_mat <-calc_diff_mat(popList)
 plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
@@ -245,13 +273,17 @@ cim_tdGR <- GRanges(seqnames = cim_td$chrom, IRanges(start = cim_td$chrom_start,
 ton_td <- ton[['td']]  %>% arrange(TajimaD) 
 ton_td <- ton_td[1:(0.01 * nrow(ton_td)), ]
 ton_tdGR <- GRanges(seqnames = ton_td$chrom, IRanges(start = ton_td$chrom_start, end = ton_td$chrom_end), tdh = ton_td$TajimaD )
+
+sam_td <- sam[['td']]  %>% arrange(TajimaD) 
+sam_td <- sam_td[1:(0.01 * nrow(sam_td)), ]
+sam_tdGR <- GRanges(seqnames = sam_td$chrom, IRanges(start = sam_td$chrom_start, end = sam_td$chrom_end), tdh = sam_td$TajimaD )
 pops <- c('nzcau','nzm','cim','ton','sam')
 popList <- list(nzcau = nzcau_tdGR,
                 nzm = nzm_tdGR, 
                 cim = cim_tdGR,
                 ton = ton_tdGR,
                 sam = sam_tdGR
-                )
+)
 
 diff_mat <-calc_diff_mat(popList)
 plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
@@ -317,7 +349,7 @@ popList <- list(nzcau = nzcau_sig_ihsGR[nzcau_sig_ihsGR$significant_ihs == 1],
                 cim = cim_sig_ihsGR[cim_sig_ihsGR$significant_ihs ==1],
                 ton = ton_sig_ihsGR[ton_sig_ihsGR$significant_ihs ==1],
                 sam = sam_sig_ihsGR[sam_sig_ihsGR$significant_ihs ==1]
-                )
+)
 
 diff_mat <-calc_diff_mat(popList)
 plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
@@ -423,7 +455,7 @@ popList <- list(nzcau = nzcau_sig_nslGR[nzcau_sig_nslGR$significant_nsl == 1],
                 cim = cim_sig_nslGR[cim_sig_nslGR$significant_nsl ==1],
                 ton = ton_sig_nslGR[ton_sig_nslGR$significant_nsl ==1],
                 sam = sam_sig_nslGR[sam_sig_nslGR$significant_nsl ==1]
-                )
+)
 
 diff_mat <-calc_diff_mat(popList)
 plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
