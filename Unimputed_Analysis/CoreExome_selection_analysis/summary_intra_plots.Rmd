@@ -11,6 +11,7 @@ library(data.table)
 library(dplyr)
 library(ggplot2)
 library(GenomicRanges)
+library(glida)
 data_dir <- '/media/xsan/scratch/merrimanlab/murray/working_dir/coreExome_selection/NZ/'
 
 
@@ -51,7 +52,7 @@ get_nsl <- function(nsl_path, pop){
     names(a)=c("marker","chrom_start","freq_1","sL1","sL0","unstd_nsl", "std_nsl", "significant")
     a$POP=as.factor(pop)
     a$chrom <- i
-    a$chrom_end <- a$chrom_start + a[2,"chrom_start"] - a[1,"chrom_start"]
+    a$chrom_end <- a$chrom_start + 1
     nsl[[i]] <-a[,c("chrom","chrom_start","chrom_end", "std_nsl","POP", "significant")]
   }
   return(do.call(rbind,nsl))
@@ -66,7 +67,7 @@ get_ihs <- function(ihs_path, pop){
     names(a)=c("marker","chrom_start","freq_1","ihh1","ihh0","unstd_ihs", "std_ihs", "significant")
     a$POP=as.factor(pop)
     a$chrom <- i
-    a$chrom_end <- a$chrom_start + a[2,"chrom_start"] - a[1,"chrom_start"]
+    a$chrom_end <- a$chrom_start + 1
     ihs[[i]] <- a[,c("chrom","chrom_start","chrom_end", "std_ihs","POP", "significant")]
   }
   return(do.call(rbind,ihs))
@@ -259,24 +260,24 @@ ggplot(combined_td, aes(y = TajimaD, x = factor(chrom))) + geom_boxplot(aes(colo
 ```{r td clustering}
 nzcau_td <- nzcau[['td']]  %>% arrange(TajimaD) 
 nzcau_td <- nzcau_td[1:(0.01 * nrow(nzcau_td)), ]
-nzcau_tdGR <- GRanges(seqnames = nzcau_td$chrom, IRanges(start = nzcau_td$chrom_start, end = nzcau_td$chrom_end), tdh = nzcau_td$TajimaD )
+nzcau_tdGR <- GRanges(seqnames = nzcau_td$chrom, IRanges(start = nzcau_td$chrom_start, end = nzcau_td$chrom_end), td = nzcau_td$TajimaD )
 
 
 nzm_td <- nzm[['td']]  %>% arrange(TajimaD) 
 nzm_td <- nzm_td[1:(0.01 * nrow(nzm_td)), ]
-nzm_tdGR <- GRanges(seqnames = nzm_td$chrom, IRanges(start = nzm_td$chrom_start, end = nzm_td$chrom_end), tdh = nzm_td$TajimaD )
+nzm_tdGR <- GRanges(seqnames = nzm_td$chrom, IRanges(start = nzm_td$chrom_start, end = nzm_td$chrom_end), td = nzm_td$TajimaD )
 
 cim_td <- cim[['td']]  %>% arrange(TajimaD) 
 cim_td <- cim_td[1:(0.01 * nrow(cim_td)), ]
-cim_tdGR <- GRanges(seqnames = cim_td$chrom, IRanges(start = cim_td$chrom_start, end = cim_td$chrom_end), tdh = cim_td$TajimaD )
+cim_tdGR <- GRanges(seqnames = cim_td$chrom, IRanges(start = cim_td$chrom_start, end = cim_td$chrom_end), td = cim_td$TajimaD )
 
 ton_td <- ton[['td']]  %>% arrange(TajimaD) 
 ton_td <- ton_td[1:(0.01 * nrow(ton_td)), ]
-ton_tdGR <- GRanges(seqnames = ton_td$chrom, IRanges(start = ton_td$chrom_start, end = ton_td$chrom_end), tdh = ton_td$TajimaD )
+ton_tdGR <- GRanges(seqnames = ton_td$chrom, IRanges(start = ton_td$chrom_start, end = ton_td$chrom_end), td = ton_td$TajimaD )
 
 sam_td <- sam[['td']]  %>% arrange(TajimaD) 
 sam_td <- sam_td[1:(0.01 * nrow(sam_td)), ]
-sam_tdGR <- GRanges(seqnames = sam_td$chrom, IRanges(start = sam_td$chrom_start, end = sam_td$chrom_end), tdh = sam_td$TajimaD )
+sam_tdGR <- GRanges(seqnames = sam_td$chrom, IRanges(start = sam_td$chrom_start, end = sam_td$chrom_end), td = sam_td$TajimaD )
 pops <- c('nzcau','nzm','cim','ton','sam')
 popList <- list(nzcau = nzcau_tdGR,
                 nzm = nzm_tdGR, 
@@ -462,3 +463,154 @@ plot(hclust(dist(diff_mat, method="euclidean"), method = "single"))
 heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
 
 ```
+
+
+
+# common regions
+```{r combined GR, eval = FALSE}
+nzcau_GR <- list(faw= nzcau_fawGR, td = nzcau_tdGR, ihs = nzcau_sig_ihsGR[nzcau_sig_ihsGR$significant_ihs == 1], nsl = nzcau_sig_nslGR[nzcau_sig_nslGR$significant_nsl == 1] )
+
+nzm_GR <- list(faw= nzm_fawGR, td = nzm_tdGR, ihs = nzm_sig_ihsGR[nzm_sig_ihsGR$significant_ihs == 1], nsl = nzm_sig_nslGR[nzm_sig_nslGR$significant_nsl == 1] )
+
+cim_GR <- list(faw= cim_fawGR, td = cim_tdGR, ihs = cim_sig_ihsGR[cim_sig_ihsGR$significant_ihs == 1], nsl = cim_sig_nslGR[cim_sig_nslGR$significant_nsl == 1] )
+
+ton_GR <- list(faw= ton_fawGR, td = ton_tdGR, ihs = ton_sig_ihsGR[ton_sig_ihsGR$significant_ihs == 1], nsl = ton_sig_nslGR[ton_sig_nslGR$significant_nsl == 1] )
+
+sam_GR <- list(faw= sam_fawGR, td = sam_tdGR, ihs = sam_sig_ihsGR[sam_sig_ihsGR$significant_ihs == 1], nsl = sam_sig_nslGR[sam_sig_nslGR$significant_nsl == 1] )
+
+report_all_common_regions <- function(listGR){
+  if(length(listGR) == 1){
+    return(listGR[[1]])
+  }
+  intsec <- intersect(listGR[[1]], listGR[[2]])
+  if(length(listGR) == 2){
+    return(intsec)
+  }
+  for(i in 3:length(listGR)){
+   intsec <- intersect(intsec, listGR[[i]])
+  } 
+  return(intsec)
+}
+
+combine_multi_GR <- function(listGR){
+  if(length(listGR) == 1){
+    return(listGR[[1]])
+  }
+  uni <- union(listGR[[1]], listGR[[2]])
+  if(length(listGR) == 2){
+    return(uni)
+  }
+  for(i in 3:length(listGR)){
+   uni <- union(uni, listGR[[i]])
+  } 
+  return(reduce(uni))
+}
+
+report_unique_to_pop <- function(refGR, list_otherGR){
+  return(setdiff(refGR,intersect(refGR, combine_multi_GR(list_otherGR), ignore.strand = TRUE ), ignore.strand = TRUE))
+}
+```
+
+## unique between populations by statistics
+### nzcau
+```{r, eval= FALSE}
+unique_nzcau_regions = list()
+unique_nzcau_regions[['faw']] <- report_unique_to_pop(nzcau_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
+#
+#apply(as.data.frame(unique_nzcau_regions[['faw']]),1, function(x){queryUCSC(fromUCSCEnsemblGenes(chromosome = x[1], start = x[2], end = x[3]))})
+unique_nzcau_regions[['td']] <- report_unique_to_pop(nzcau_GR[['td']], list_otherGR = list(nzm_GR[['td']], cim_GR[['td']], ton_GR[['td']],sam_GR[['td']]))
+
+unique_nzcau_regions[['ihs']] <- report_unique_to_pop(nzcau_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], cim_GR[['ihs']], ton_GR[['ihs']],sam_GR[['ihs']]))
+
+unique_nzcau_regions[['nsl']] <- report_unique_to_pop(nzcau_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], cim_GR[['nsl']], ton_GR[['nsl']],sam_GR[['nsl']]))
+```
+
+```{r, eval = FALSE}
+library(VariantAnnotation)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene) # for annotation
+library(org.Hs.eg.db)  # to convert from Entrez Gene ID to Symbol
+
+
+target <- GRanges(paste0('chr',seqnames(unique_nzm_regions[['faw']])), IRanges(unique_nzm_regions[['faw']]@ranges))
+#annotate variants
+loc <- locateVariants(target, TxDb.Hsapiens.UCSC.hg19.knownGene, AllVariants(), ignore.strand)
+colnames(org.Hs.eg.db)
+cols <- c("SYMBOL")
+keys <- na.omit(unique(loc$GENEID))
+symbols <- select(org.Hs.eg.db, keys, cols, keytype="ENTREZID")
+#convert to gene symbol from entrez id
+n <- merge(as.data.frame(loc), symbols, by.x = "GENEID", by.y = "ENTREZID", all.x=TRUE)
+
+
+```
+
+### nzm
+```{r , eval= FALSE}
+unique_nzm_regions = list()
+unique_nzm_regions[['faw']] <- report_unique_to_pop(nzm_GR[['faw']], list_otherGR = list(nzcau_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
+
+unique_nzm_regions[['td']] <- report_unique_to_pop(nzm_GR[['td']], list_otherGR = list(nzcau_GR[['td']], cim_GR[['td']], ton_GR[['td']],sam_GR[['td']]))
+
+unique_nzm_regions[['ihs']] <- report_unique_to_pop(nzm_GR[['ihs']], list_otherGR = list(nzcau_GR[['ihs']], cim_GR[['ihs']], ton_GR[['ihs']],sam_GR[['ihs']]))
+
+unique_nzm_regions[['nsl']] <- report_unique_to_pop(nzm_GR[['nsl']], list_otherGR = list(nzcau_GR[['nsl']], cim_GR[['nsl']], ton_GR[['nsl']],sam_GR[['nsl']]))
+```
+
+### cim
+```{r}
+unique_cim_regions = list()
+unique_cim_regions[['faw']] <- report_unique_to_pop(cim_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], nzcau_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
+
+unique_cim_regions[['td']] <- report_unique_to_pop(cim_GR[['td']], list_otherGR = list(nzm_GR[['td']], nzcau_GR[['td']], ton_GR[['td']],sam_GR[['td']]))
+
+unique_cim_regions[['ihs']] <- report_unique_to_pop(cim_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], nzcau_GR[['ihs']], ton_GR[['ihs']],sam_GR[['ihs']]))
+
+unique_cim_regions[['nsl']] <- report_unique_to_pop(cim_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], nzcau_GR[['nsl']], ton_GR[['nsl']],sam_GR[['nsl']]))
+```
+
+### ton
+```{r}
+unique_ton_regions = list()
+unique_ton_regions[['faw']] <- report_unique_to_pop(ton_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], nzcau_GR[['faw']],sam_GR[['faw']]))
+
+unique_ton_regions[['td']] <- report_unique_to_pop(ton_GR[['td']], list_otherGR = list(nzm_GR[['td']], cim_GR[['td']], nzcau_GR[['td']],sam_GR[['td']]))
+
+unique_ton_regions[['ihs']] <- report_unique_to_pop(ton_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], cim_GR[['ihs']], nzcau_GR[['ihs']],sam_GR[['ihs']]))
+
+unique_ton_regions[['nsl']] <- report_unique_to_pop(ton_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], cim_GR[['nsl']], nzcau_GR[['nsl']],sam_GR[['nsl']]))
+```
+
+### sam
+```{r}
+unique_sam_regions = list()
+unique_sam_regions[['faw']] <- report_unique_to_pop(sam_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],nzcau_GR[['faw']]))
+
+unique_sam_regions[['td']] <- report_unique_to_pop(sam_GR[['td']], list_otherGR = list(nzm_GR[['td']], cim_GR[['td']], ton_GR[['td']],nzcau_GR[['td']]))
+
+unique_sam_regions[['ihs']] <- report_unique_to_pop(sam_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], cim_GR[['ihs']], ton_GR[['ihs']],nzcau_GR[['ihs']]))
+
+unique_sam_regions[['nsl']] <- report_unique_to_pop(sam_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], cim_GR[['nsl']], ton_GR[['nsl']],nzcau_GR[['nsl']]))
+```
+
+## between all statistics by populations
+
+```{r}
+nzcau_common <- report_all_common_regions(nzcau_GR)
+nzcau_common_genes <- apply(as.data.frame(nzcau_common),1, function(x){queryUCSC(fromUCSCEnsemblGenes(chromosome = x[1], start = x[2], end = x[3]))})
+sum(width(nz_cau_common))
+
+nzm_common <- report_all_common_regions(nzm_GR)
+sum(width(nz_cau_common))
+
+cim_common <- report_all_common_regions(cim_GR)
+sum(width(nz_cau_common))
+
+ton_common <- report_all_common_regions(ton_GR)
+sum(width(nz_cau_common))
+
+sam_common <- report_all_common_regions(sam_GR)
+sum(width(nz_cau_common))
+```
+
+# KaKs
+
