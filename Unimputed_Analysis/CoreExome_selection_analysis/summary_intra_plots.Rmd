@@ -2,7 +2,9 @@
 title: "coreExome selection analysis"
 author: ""
 date: "`r format(Sys.Date())`"
-output: html_document
+output: 
+  html_document:
+    toc: yes
 
 --- 
 
@@ -104,6 +106,51 @@ calc_diff_mat <- function(popList){
   }
   return(dm)
 }
+
+
+report_all_common_regions <- function(listGR){
+  if(length(listGR) == 1){
+    return(listGR[[1]])
+  }
+  intsec <- intersect(listGR[[1]], listGR[[2]])
+  if(length(listGR) == 2){
+    return(intsec)
+  }
+  for(i in 3:length(listGR)){
+   intsec <- intersect(intsec, listGR[[i]])
+  } 
+  return(intsec)
+}
+
+combine_multi_GR <- function(listGR){
+  if(length(listGR) == 1){
+    return(listGR[[1]])
+  }
+  uni <- union(listGR[[1]], listGR[[2]])
+  if(length(listGR) == 2){
+    return(uni)
+  }
+  for(i in 3:length(listGR)){
+   uni <- union(uni, listGR[[i]])
+  } 
+  return(reduce(uni))
+}
+
+report_unique_to_pop <- function(refGR, list_otherGR){
+  return(setdiff(refGR,intersect(refGR, combine_multi_GR(list_otherGR), ignore.strand = TRUE ), ignore.strand = TRUE))
+}
+
+
+lsa.gwas.cluster <- function (gwas_data,settings) {
+  # Cluster GWAS data to identify regions of association
+  lambda_cluster <- function (position, eps = 0.2, minPts = 1) {
+    dbscan::dbscan(as.matrix(position)/1000000,eps=eps, minPts = minPts)
+  }
+  
+  gwas_data[, ClusterID := lambda_cluster(chrom_start),by= c("chrom","POP")]
+  return (gwas_data)
+} 
+
 ```
 
 ```{r load data}
@@ -361,37 +408,64 @@ heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
 ```
 
 
-```{r ihs clustering, eval = FALSE, echo= FALSE}
+```{r ihs clustering, eval = TRUE, echo= FALSE}
 library(GenomicRanges)
 cau_ihs <- combined_ihs %>% filter(POP == "nzcau" & abs(std_ihs) > 3)
 nzm_ihs <- combined_ihs %>% filter(POP == "nzm" & abs(std_ihs) > 3)
-cim_ihs <- combined_ihs %>% filter(POP == "cim" & abs(std_ihs) > 3)
+cim_ihs <-combined_ihs %>% filter(POP == "cim" & abs(std_ihs) > 3)
 ton_ihs <- combined_ihs %>% filter(POP == "ton" & abs(std_ihs) > 3)
 sam_ihs <- combined_ihs %>% filter(POP == "sam" & abs(std_ihs) > 3)
 
-tmp <- rbindlist(apply(cau_ihs[,1:3], 1, function(x){return(data.frame(chrom = rep(x[1], length(x[2]:x[3])), position = x[2]:x[3] ) )} ))
 
-cau_clust <- lsa.gwas.cluster(as.data.table(tmp))
+
+cau_clust <- lsa.gwas.cluster(as.data.table(cau_ihs))
 cau_regions <- cau_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
 cau_regions$POP <- "nzcau"
+cau_regions <- GRanges(cau_regions)
+cau_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "nzcau" & significant == 1))
 
-nzm_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'nzm' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+nzm_clust <- lsa.gwas.cluster(as.data.table(nzm_ihs))
 nzm_regions <- nzm_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
 nzm_regions$POP <- "nzm"
+nzm_regions <- GRanges(nzm_regions)
+nzm_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "nzm" & significant == 1))
 
-cim_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'cim' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+cim_clust <- lsa.gwas.cluster(as.data.table(cim_ihs ))
 cim_regions <- cim_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
 cim_regions$POP <- "cim"
+cim_regions <- GRanges(cim_regions)
+cim_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "cim" & significant == 1))
 
-ton_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'ton' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+ton_clust <- lsa.gwas.cluster(as.data.table(ton_ihs))
 ton_regions <- ton_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
 ton_regions$POP <- "ton"
+ton_regions <- GRanges(ton_regions)
+ton_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "ton" & significant == 1))
 
-sam_clust <- lsa.gwas.cluster(as.data.table(as.data.table(combined_ihs %>% filter(POP == 'sam' & abs(std_ihs) > 3)  %>% mutate(window_centre = chrom_start + (chrom_end - chrom_start)/2 ))))
+sam_clust <- lsa.gwas.cluster(as.data.table(sam_ihs))
 sam_regions <- sam_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
 sam_regions$POP <- "sam"
+sam_regions <- GRanges(sam_regions)
+sam_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "sam" & significant == 1))
 
-
+library(Gviz)
+gen = "hg19"
+for(i in 1:22){
+  print(paste("Chromosome", i))
+plotTracks(list(DataTrack(cau_ihs_regions[seqnames(cau_ihs_regions) == i], data = abs(cau_ihs_regions[seqnames(cau_ihs_regions) == i]$std_ihs), name = "nzcau ihs", col = 'red'),
+                cau = AnnotationTrack(cau_regions[seqnames(cau_regions) == i & width(cau_regions) >= 1], name = "nzcau key peaks"),
+                DataTrack(nzm_ihs_regions[seqnames(nzm_ihs_regions) == i], data = abs(nzm_ihs_regions[seqnames(nzm_ihs_regions) ==i]$std_ihs), name = "nzm ihs", col = 'blue'),
+                nzm = AnnotationTrack(nzm_regions[seqnames(nzm_regions) == i & width(nzm_regions) > 1]),
+                DataTrack(cim_ihs_regions[seqnames(cim_ihs_regions) == i], data = abs(cim_ihs_regions[seqnames(cim_ihs_regions) == i]$std_ihs), name = 'cim ihs', col = 'orange'),
+                cim = AnnotationTrack(cim_regions[seqnames(cim_regions)== i & width(cim_regions) > 1]),
+                DataTrack(ton_ihs_regions[seqnames(ton_ihs_regions) == i], data = abs(ton_ihs_regions[seqnames(ton_ihs_regions) == i]$std_ihs), name = 'ton ihs', col='green'),
+                ton = AnnotationTrack(ton_regions[seqnames(ton_regions)== i & width(ton_regions) > 1]),
+                DataTrack(sam_ihs_regions[seqnames(sam_ihs_regions) == i], data = abs(sam_ihs_regions[seqnames(sam_ihs_regions) == i]$std_ihs), name = 'sam ihs', col = 'purple'),
+                sam = AnnotationTrack(sam_regions[seqnames(sam_regions)== i & width(sam_regions) > 1]),
+                GenomeAxisTrack()
+                )
+           )
+}
 ```
 
 
@@ -438,6 +512,67 @@ dev.off()
 ```
 
 
+```{r nsl clustering, eval = TRUE, echo= FALSE}
+library(GenomicRanges)
+cau_nsl <- combined_nsl %>% filter(POP == "nzcau" & abs(std_nsl) > 3)
+nzm_nsl <- combined_nsl %>% filter(POP == "nzm" & abs(std_nsl) > 3)
+cim_nsl <-combined_nsl %>% filter(POP == "cim" & abs(std_nsl) > 3)
+ton_nsl <- combined_nsl %>% filter(POP == "ton" & abs(std_nsl) > 3)
+sam_nsl <- combined_nsl %>% filter(POP == "sam" & abs(std_nsl) > 3)
+
+
+
+cau_clust <- lsa.gwas.cluster(as.data.table(cau_nsl))
+cau_regions <- cau_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+cau_regions$POP <- "nzcau"
+cau_regions <- GRanges(cau_regions)
+cau_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "nzcau" & significant == 1))
+
+nzm_clust <- lsa.gwas.cluster(as.data.table(nzm_nsl))
+nzm_regions <- nzm_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+nzm_regions$POP <- "nzm"
+nzm_regions <- GRanges(nzm_regions)
+nzm_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "nzm" & significant == 1))
+
+cim_clust <- lsa.gwas.cluster(as.data.table(cim_nsl ))
+cim_regions <- cim_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+cim_regions$POP <- "cim"
+cim_regions <- GRanges(cim_regions)
+cim_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "cim" & significant == 1))
+
+ton_clust <- lsa.gwas.cluster(as.data.table(ton_nsl))
+ton_regions <- ton_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+ton_regions$POP <- "ton"
+ton_regions <- GRanges(ton_regions)
+ton_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "ton" & significant == 1))
+
+sam_clust <- lsa.gwas.cluster(as.data.table(sam_nsl))
+sam_regions <- sam_clust[, .(start = min(chrom_start), end = max(chrom_start)), by = c("chrom","ClusterID")]
+sam_regions$POP <- "sam"
+sam_regions <- GRanges(sam_regions)
+sam_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "sam" & significant == 1))
+
+library(Gviz)
+gen = "hg19"
+for(i in 1:22){
+  print(paste("Chromosome", i))
+plotTracks(list(DataTrack(cau_nsl_regions[seqnames(cau_nsl_regions) == i], data = abs(cau_nsl_regions[seqnames(cau_nsl_regions) == i]$std_nsl), name = "nzcau nsl", col = 'red'),
+                cau = AnnotationTrack(cau_regions[seqnames(cau_regions) == i & width(cau_regions) >= 1], name = "nzcau key peaks"),
+                DataTrack(nzm_nsl_regions[seqnames(nzm_nsl_regions) == i], data = abs(nzm_nsl_regions[seqnames(nzm_nsl_regions) ==i]$std_nsl), name = "nzm nsl", col = 'blue'),
+                nzm = AnnotationTrack(nzm_regions[seqnames(nzm_regions) == i & width(nzm_regions) > 1]),
+                DataTrack(cim_nsl_regions[seqnames(cim_nsl_regions) == i], data = abs(cim_nsl_regions[seqnames(cim_nsl_regions) == i]$std_nsl), name = 'cim nsl', col = 'orange'),
+                cim = AnnotationTrack(cim_regions[seqnames(cim_regions)== i & width(cim_regions) > 1]),
+                DataTrack(ton_nsl_regions[seqnames(ton_nsl_regions) == i], data = abs(ton_nsl_regions[seqnames(ton_nsl_regions) == i]$std_nsl), name = 'ton nsl', col='green'),
+                ton = AnnotationTrack(ton_regions[seqnames(ton_regions)== i & width(ton_regions) > 1]),
+                DataTrack(sam_nsl_regions[seqnames(sam_nsl_regions) == i], data = abs(sam_nsl_regions[seqnames(sam_nsl_regions) == i]$std_nsl), name = 'sam nsl', col = 'purple'),
+                sam = AnnotationTrack(sam_regions[seqnames(sam_regions)== i & width(sam_regions) > 1]),
+                GenomeAxisTrack()
+                )
+           )
+}
+```
+
+
 ```{r}
 nzcau_sig_nslGR <- GRanges(seqnames = nzcau[['nsl']]$chrom, IRanges(start = nzcau[['nsl']]$chrom_start, end = nzcau[['nsl']]$chrom_end), significant_nsl = nzcau[['nsl']]$significant)
 
@@ -478,37 +613,6 @@ ton_GR <- list(faw= ton_fawGR, td = ton_tdGR, ihs = ton_sig_ihsGR[ton_sig_ihsGR$
 
 sam_GR <- list(faw= sam_fawGR, td = sam_tdGR, ihs = sam_sig_ihsGR[sam_sig_ihsGR$significant_ihs == 1], nsl = sam_sig_nslGR[sam_sig_nslGR$significant_nsl == 1] )
 
-report_all_common_regions <- function(listGR){
-  if(length(listGR) == 1){
-    return(listGR[[1]])
-  }
-  intsec <- intersect(listGR[[1]], listGR[[2]])
-  if(length(listGR) == 2){
-    return(intsec)
-  }
-  for(i in 3:length(listGR)){
-   intsec <- intersect(intsec, listGR[[i]])
-  } 
-  return(intsec)
-}
-
-combine_multi_GR <- function(listGR){
-  if(length(listGR) == 1){
-    return(listGR[[1]])
-  }
-  uni <- union(listGR[[1]], listGR[[2]])
-  if(length(listGR) == 2){
-    return(uni)
-  }
-  for(i in 3:length(listGR)){
-   uni <- union(uni, listGR[[i]])
-  } 
-  return(reduce(uni))
-}
-
-report_unique_to_pop <- function(refGR, list_otherGR){
-  return(setdiff(refGR,intersect(refGR, combine_multi_GR(list_otherGR), ignore.strand = TRUE ), ignore.strand = TRUE))
-}
 ```
 
 ## unique between populations by statistics
@@ -557,7 +661,7 @@ unique_nzm_regions[['nsl']] <- report_unique_to_pop(nzm_GR[['nsl']], list_otherG
 ```
 
 ### cim
-```{r}
+```{r, eval = FALSE}
 unique_cim_regions = list()
 unique_cim_regions[['faw']] <- report_unique_to_pop(cim_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], nzcau_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
 
@@ -569,7 +673,7 @@ unique_cim_regions[['nsl']] <- report_unique_to_pop(cim_GR[['nsl']], list_otherG
 ```
 
 ### ton
-```{r}
+```{r, eval = FALSE}
 unique_ton_regions = list()
 unique_ton_regions[['faw']] <- report_unique_to_pop(ton_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], nzcau_GR[['faw']],sam_GR[['faw']]))
 
@@ -581,7 +685,7 @@ unique_ton_regions[['nsl']] <- report_unique_to_pop(ton_GR[['nsl']], list_otherG
 ```
 
 ### sam
-```{r}
+```{r, eval = FALSE}
 unique_sam_regions = list()
 unique_sam_regions[['faw']] <- report_unique_to_pop(sam_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],nzcau_GR[['faw']]))
 
@@ -594,7 +698,7 @@ unique_sam_regions[['nsl']] <- report_unique_to_pop(sam_GR[['nsl']], list_otherG
 
 ## between all statistics by populations
 
-```{r}
+```{r, eval=FALSE}
 nzcau_common <- report_all_common_regions(nzcau_GR)
 nzcau_common_genes <- apply(as.data.frame(nzcau_common),1, function(x){queryUCSC(fromUCSCEnsemblGenes(chromosome = x[1], start = x[2], end = x[3]))})
 sum(width(nz_cau_common))
