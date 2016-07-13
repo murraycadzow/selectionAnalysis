@@ -143,7 +143,8 @@ report_unique_to_pop <- function(refGR, list_otherGR){
 
 lsa.gwas.cluster <- function (gwas_data,settings) {
   # Cluster GWAS data to identify regions of association
-  lambda_cluster <- function (position, eps = 0.2, minPts = 1) {
+  # default eps = 0.2 (200kb)
+  lambda_cluster <- function (position, eps = 0.5, minPts = 1) {
     dbscan::dbscan(as.matrix(position)/1000000,eps=eps, minPts = minPts)
   }
   
@@ -410,11 +411,11 @@ heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
 
 ```{r ihs clustering, eval = TRUE, echo= FALSE}
 library(GenomicRanges)
-cau_ihs <- combined_ihs %>% filter(POP == "nzcau" & abs(std_ihs) > 3)
-nzm_ihs <- combined_ihs %>% filter(POP == "nzm" & abs(std_ihs) > 3)
-cim_ihs <-combined_ihs %>% filter(POP == "cim" & abs(std_ihs) > 3)
-ton_ihs <- combined_ihs %>% filter(POP == "ton" & abs(std_ihs) > 3)
-sam_ihs <- combined_ihs %>% filter(POP == "sam" & abs(std_ihs) > 3)
+cau_ihs <- combined_ihs %>% filter(POP == "nzcau" & abs(std_ihs) > 2.5)
+nzm_ihs <- combined_ihs %>% filter(POP == "nzm" & abs(std_ihs) > 2.5)
+cim_ihs <-combined_ihs %>% filter(POP == "cim" & abs(std_ihs) > 2.5)
+ton_ihs <- combined_ihs %>% filter(POP == "ton" & abs(std_ihs) > 2.5)
+sam_ihs <- combined_ihs %>% filter(POP == "sam" & abs(std_ihs) > 2.5)
 
 
 
@@ -450,17 +451,19 @@ sam_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "sam" & significant ==
 
 library(Gviz)
 gen = "hg19"
+max_ihs <- max(abs(combined_ihs$std_ihs))
+min_ihs <- min(abs(combined_ihs[combined_ihs$significant == 1,]$std_ihs))
 for(i in 1:22){
   print(paste("Chromosome", i))
-plotTracks(list(DataTrack(cau_ihs_regions[seqnames(cau_ihs_regions) == i], data = abs(cau_ihs_regions[seqnames(cau_ihs_regions) == i]$std_ihs), name = "nzcau ihs", col = 'red'),
+plotTracks(list(DataTrack(cau_ihs_regions[seqnames(cau_ihs_regions) == i], data = abs(cau_ihs_regions[seqnames(cau_ihs_regions) == i]$std_ihs), name = "nzcau ihs", col = 'red',ylim = c(min_ihs, max_ihs)),
                 cau = AnnotationTrack(cau_regions[seqnames(cau_regions) == i & width(cau_regions) >= 1], name = "nzcau key peaks"),
-                DataTrack(nzm_ihs_regions[seqnames(nzm_ihs_regions) == i], data = abs(nzm_ihs_regions[seqnames(nzm_ihs_regions) ==i]$std_ihs), name = "nzm ihs", col = 'blue'),
+                DataTrack(nzm_ihs_regions[seqnames(nzm_ihs_regions) == i], data = abs(nzm_ihs_regions[seqnames(nzm_ihs_regions) ==i]$std_ihs), name = "nzm ihs", col = 'blue',ylim = c(min_ihs, max_ihs)),
                 nzm = AnnotationTrack(nzm_regions[seqnames(nzm_regions) == i & width(nzm_regions) > 1]),
-                DataTrack(cim_ihs_regions[seqnames(cim_ihs_regions) == i], data = abs(cim_ihs_regions[seqnames(cim_ihs_regions) == i]$std_ihs), name = 'cim ihs', col = 'orange'),
+                DataTrack(cim_ihs_regions[seqnames(cim_ihs_regions) == i], data = abs(cim_ihs_regions[seqnames(cim_ihs_regions) == i]$std_ihs), name = 'cim ihs', col = 'orange',ylim = c(min_ihs, max_ihs)),
                 cim = AnnotationTrack(cim_regions[seqnames(cim_regions)== i & width(cim_regions) > 1]),
-                DataTrack(ton_ihs_regions[seqnames(ton_ihs_regions) == i], data = abs(ton_ihs_regions[seqnames(ton_ihs_regions) == i]$std_ihs), name = 'ton ihs', col='green'),
+                DataTrack(ton_ihs_regions[seqnames(ton_ihs_regions) == i], data = abs(ton_ihs_regions[seqnames(ton_ihs_regions) == i]$std_ihs), name = 'ton ihs', col='green',ylim = c(min_ihs, max_ihs)),
                 ton = AnnotationTrack(ton_regions[seqnames(ton_regions)== i & width(ton_regions) > 1]),
-                DataTrack(sam_ihs_regions[seqnames(sam_ihs_regions) == i], data = abs(sam_ihs_regions[seqnames(sam_ihs_regions) == i]$std_ihs), name = 'sam ihs', col = 'purple'),
+                DataTrack(sam_ihs_regions[seqnames(sam_ihs_regions) == i], data = abs(sam_ihs_regions[seqnames(sam_ihs_regions) == i]$std_ihs), name = 'sam ihs', col = 'purple',ylim = c(min_ihs, max_ihs)),
                 sam = AnnotationTrack(sam_regions[seqnames(sam_regions)== i & width(sam_regions) > 1]),
                 GenomeAxisTrack()
                 )
@@ -514,11 +517,11 @@ dev.off()
 
 ```{r nsl clustering, eval = TRUE, echo= FALSE}
 library(GenomicRanges)
-cau_nsl <- combined_nsl %>% filter(POP == "nzcau" & abs(std_nsl) > 3)
-nzm_nsl <- combined_nsl %>% filter(POP == "nzm" & abs(std_nsl) > 3)
-cim_nsl <-combined_nsl %>% filter(POP == "cim" & abs(std_nsl) > 3)
-ton_nsl <- combined_nsl %>% filter(POP == "ton" & abs(std_nsl) > 3)
-sam_nsl <- combined_nsl %>% filter(POP == "sam" & abs(std_nsl) > 3)
+cau_nsl <- combined_nsl %>% filter(POP == "nzcau" & abs(std_nsl) > 2)
+nzm_nsl <- combined_nsl %>% filter(POP == "nzm" & abs(std_nsl) > 2)
+cim_nsl <-combined_nsl %>% filter(POP == "cim" & abs(std_nsl) > 2)
+ton_nsl <- combined_nsl %>% filter(POP == "ton" & abs(std_nsl) > 2)
+sam_nsl <- combined_nsl %>% filter(POP == "sam" & abs(std_nsl) > 2)
 
 
 
@@ -554,17 +557,19 @@ sam_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "sam" & significant ==
 
 library(Gviz)
 gen = "hg19"
+max_nsl <- max(abs(combined_nsl$std_nsl))
+min_nsl <- min(abs(combined_nsl[combined_nsl$significant == 1,]$std_nsl))
 for(i in 1:22){
   print(paste("Chromosome", i))
-plotTracks(list(DataTrack(cau_nsl_regions[seqnames(cau_nsl_regions) == i], data = abs(cau_nsl_regions[seqnames(cau_nsl_regions) == i]$std_nsl), name = "nzcau nsl", col = 'red'),
+plotTracks(list(DataTrack(cau_nsl_regions[seqnames(cau_nsl_regions) == i], data = abs(cau_nsl_regions[seqnames(cau_nsl_regions) == i]$std_nsl), name = "nzcau nsl", col = 'red', ylim = c(min_nsl, max_nsl)),
                 cau = AnnotationTrack(cau_regions[seqnames(cau_regions) == i & width(cau_regions) >= 1], name = "nzcau key peaks"),
-                DataTrack(nzm_nsl_regions[seqnames(nzm_nsl_regions) == i], data = abs(nzm_nsl_regions[seqnames(nzm_nsl_regions) ==i]$std_nsl), name = "nzm nsl", col = 'blue'),
+                DataTrack(nzm_nsl_regions[seqnames(nzm_nsl_regions) == i], data = abs(nzm_nsl_regions[seqnames(nzm_nsl_regions) ==i]$std_nsl), name = "nzm nsl", col = 'blue', ylim = c(min_nsl, max_nsl)),
                 nzm = AnnotationTrack(nzm_regions[seqnames(nzm_regions) == i & width(nzm_regions) > 1]),
-                DataTrack(cim_nsl_regions[seqnames(cim_nsl_regions) == i], data = abs(cim_nsl_regions[seqnames(cim_nsl_regions) == i]$std_nsl), name = 'cim nsl', col = 'orange'),
+                DataTrack(cim_nsl_regions[seqnames(cim_nsl_regions) == i], data = abs(cim_nsl_regions[seqnames(cim_nsl_regions) == i]$std_nsl), name = 'cim nsl', col = 'orange', ylim = c(min_nsl, max_nsl)),
                 cim = AnnotationTrack(cim_regions[seqnames(cim_regions)== i & width(cim_regions) > 1]),
-                DataTrack(ton_nsl_regions[seqnames(ton_nsl_regions) == i], data = abs(ton_nsl_regions[seqnames(ton_nsl_regions) == i]$std_nsl), name = 'ton nsl', col='green'),
+                DataTrack(ton_nsl_regions[seqnames(ton_nsl_regions) == i], data = abs(ton_nsl_regions[seqnames(ton_nsl_regions) == i]$std_nsl), name = 'ton nsl', col='green', ylim = c(min_nsl, max_nsl)),
                 ton = AnnotationTrack(ton_regions[seqnames(ton_regions)== i & width(ton_regions) > 1]),
-                DataTrack(sam_nsl_regions[seqnames(sam_nsl_regions) == i], data = abs(sam_nsl_regions[seqnames(sam_nsl_regions) == i]$std_nsl), name = 'sam nsl', col = 'purple'),
+                DataTrack(sam_nsl_regions[seqnames(sam_nsl_regions) == i], data = abs(sam_nsl_regions[seqnames(sam_nsl_regions) == i]$std_nsl), name = 'sam nsl', col = 'purple', ylim = c(min_nsl, max_nsl)),
                 sam = AnnotationTrack(sam_regions[seqnames(sam_regions)== i & width(sam_regions) > 1]),
                 GenomeAxisTrack()
                 )
@@ -599,10 +604,37 @@ heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
 
 ```
 
-
+```{r pca, eval = FALSE}
+p <- prcomp(x = t(abs(as.data.frame(combined_ihs  %>% filter(POP == 'nzcau')  %>% dplyr::select(std_ihs)))))
+```
 
 # common regions
-```{r combined GR, eval = FALSE}
+
+```{r, eval = TRUE, echo=FALSE}
+library(VariantAnnotation)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene) # for annotation
+library(org.Hs.eg.db)  # to convert from Entrez Gene ID to Symbol
+
+annotate_genes <- function(GR){
+  target <- GRanges(paste0('chr',seqnames(GR)), IRanges(GR@ranges))
+  loc <- locateVariants(target, TxDb.Hsapiens.UCSC.hg19.knownGene, AllVariants(), ignore.strand)
+  loc <- loc[!is.na(loc$GENEID),]
+  if(nrow(as.data.frame(loc, row.names = NULL)) > 0){
+    colnames(org.Hs.eg.db)
+    cols <- c("SYMBOL")
+    keys <- na.omit(unique(loc$GENEID))
+    symbols <- select(org.Hs.eg.db, keys, cols, keytype="ENTREZID")
+    #convert to gene symbol from entrez id
+    n <- merge(as.data.frame(loc, row.names = NULL), symbols, by.x = "GENEID", by.y = "ENTREZID", all.x=TRUE)
+    return(n)
+  } else {
+  return(as.data.frame(loc, row.names = NULL))
+  }
+}
+
+```
+
+```{r combined GR, eval = TRUE}
 nzcau_GR <- list(faw= nzcau_fawGR, td = nzcau_tdGR, ihs = nzcau_sig_ihsGR[nzcau_sig_ihsGR$significant_ihs == 1], nsl = nzcau_sig_nslGR[nzcau_sig_nslGR$significant_nsl == 1] )
 
 nzm_GR <- list(faw= nzm_fawGR, td = nzm_tdGR, ihs = nzm_sig_ihsGR[nzm_sig_ihsGR$significant_ihs == 1], nsl = nzm_sig_nslGR[nzm_sig_nslGR$significant_nsl == 1] )
@@ -617,39 +649,27 @@ sam_GR <- list(faw= sam_fawGR, td = sam_tdGR, ihs = sam_sig_ihsGR[sam_sig_ihsGR$
 
 ## unique between populations by statistics
 ### nzcau
-```{r, eval= FALSE}
+```{r unique nzcau,warning=FALSE, message=FALSE}
 unique_nzcau_regions = list()
 unique_nzcau_regions[['faw']] <- report_unique_to_pop(nzcau_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
-#
-#apply(as.data.frame(unique_nzcau_regions[['faw']]),1, function(x){queryUCSC(fromUCSCEnsemblGenes(chromosome = x[1], start = x[2], end = x[3]))})
+
 unique_nzcau_regions[['td']] <- report_unique_to_pop(nzcau_GR[['td']], list_otherGR = list(nzm_GR[['td']], cim_GR[['td']], ton_GR[['td']],sam_GR[['td']]))
 
 unique_nzcau_regions[['ihs']] <- report_unique_to_pop(nzcau_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], cim_GR[['ihs']], ton_GR[['ihs']],sam_GR[['ihs']]))
 
 unique_nzcau_regions[['nsl']] <- report_unique_to_pop(nzcau_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], cim_GR[['nsl']], ton_GR[['nsl']],sam_GR[['nsl']]))
+
+unique_nzcau_regions_genelists <- list()
+for(stat in names(unique_nzcau_regions)){
+  print(stat)
+  unique_nzcau_regions_genelists[[stat]] <- annotate_genes(unique_nzcau_regions[[stat]])
+  print(table(unique_nzcau_regions_genelists[[stat]]$LOCATION))
+}
 ```
 
-```{r, eval = FALSE}
-library(VariantAnnotation)
-library(TxDb.Hsapiens.UCSC.hg19.knownGene) # for annotation
-library(org.Hs.eg.db)  # to convert from Entrez Gene ID to Symbol
-
-
-target <- GRanges(paste0('chr',seqnames(unique_nzm_regions[['faw']])), IRanges(unique_nzm_regions[['faw']]@ranges))
-#annotate variants
-loc <- locateVariants(target, TxDb.Hsapiens.UCSC.hg19.knownGene, AllVariants(), ignore.strand)
-colnames(org.Hs.eg.db)
-cols <- c("SYMBOL")
-keys <- na.omit(unique(loc$GENEID))
-symbols <- select(org.Hs.eg.db, keys, cols, keytype="ENTREZID")
-#convert to gene symbol from entrez id
-n <- merge(as.data.frame(loc), symbols, by.x = "GENEID", by.y = "ENTREZID", all.x=TRUE)
-
-
-```
 
 ### nzm
-```{r , eval= FALSE}
+```{r unique nzm,warning=FALSE, message=FALSE}
 unique_nzm_regions = list()
 unique_nzm_regions[['faw']] <- report_unique_to_pop(nzm_GR[['faw']], list_otherGR = list(nzcau_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
 
@@ -658,10 +678,18 @@ unique_nzm_regions[['td']] <- report_unique_to_pop(nzm_GR[['td']], list_otherGR 
 unique_nzm_regions[['ihs']] <- report_unique_to_pop(nzm_GR[['ihs']], list_otherGR = list(nzcau_GR[['ihs']], cim_GR[['ihs']], ton_GR[['ihs']],sam_GR[['ihs']]))
 
 unique_nzm_regions[['nsl']] <- report_unique_to_pop(nzm_GR[['nsl']], list_otherGR = list(nzcau_GR[['nsl']], cim_GR[['nsl']], ton_GR[['nsl']],sam_GR[['nsl']]))
+
+unique_nzm_regions_genelists <- list()
+for(stat in names(unique_nzm_regions)){
+  unique_nzm_regions_genelists[[stat]] <- annotate_genes(unique_nzm_regions[[stat]])
+  print(table(unique_nzm_regions_genelists[[stat]]$LOCATION))
+}
 ```
 
+
+
 ### cim
-```{r, eval = FALSE}
+```{r unique cim,warning=FALSE, message=FALSE}
 unique_cim_regions = list()
 unique_cim_regions[['faw']] <- report_unique_to_pop(cim_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], nzcau_GR[['faw']], ton_GR[['faw']],sam_GR[['faw']]))
 
@@ -670,10 +698,16 @@ unique_cim_regions[['td']] <- report_unique_to_pop(cim_GR[['td']], list_otherGR 
 unique_cim_regions[['ihs']] <- report_unique_to_pop(cim_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], nzcau_GR[['ihs']], ton_GR[['ihs']],sam_GR[['ihs']]))
 
 unique_cim_regions[['nsl']] <- report_unique_to_pop(cim_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], nzcau_GR[['nsl']], ton_GR[['nsl']],sam_GR[['nsl']]))
+
+unique_cim_regions_genelists <- list()
+for(stat in names(unique_cim_regions)){
+  unique_cim_regions_genelists[[stat]] <- annotate_genes(unique_cim_regions[[stat]])
+  print(table(unique_cim_regions_genelists[[stat]]$LOCATION))
+}
 ```
 
 ### ton
-```{r, eval = FALSE}
+```{r unique ton,warning=FALSE, message=FALSE}
 unique_ton_regions = list()
 unique_ton_regions[['faw']] <- report_unique_to_pop(ton_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], nzcau_GR[['faw']],sam_GR[['faw']]))
 
@@ -682,10 +716,16 @@ unique_ton_regions[['td']] <- report_unique_to_pop(ton_GR[['td']], list_otherGR 
 unique_ton_regions[['ihs']] <- report_unique_to_pop(ton_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], cim_GR[['ihs']], nzcau_GR[['ihs']],sam_GR[['ihs']]))
 
 unique_ton_regions[['nsl']] <- report_unique_to_pop(ton_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], cim_GR[['nsl']], nzcau_GR[['nsl']],sam_GR[['nsl']]))
+
+unique_ton_regions_genelists <- list()
+for(stat in names(unique_ton_regions)){
+  unique_ton_regions_genelists[[stat]] <- annotate_genes(unique_ton_regions[[stat]])
+  print(table(unique_ton_regions_genelists[[stat]]$LOCATION))
+}
 ```
 
 ### sam
-```{r, eval = FALSE}
+```{r unique sam, warning=FALSE, message=FALSE}
 unique_sam_regions = list()
 unique_sam_regions[['faw']] <- report_unique_to_pop(sam_GR[['faw']], list_otherGR = list(nzm_GR[['faw']], cim_GR[['faw']], ton_GR[['faw']],nzcau_GR[['faw']]))
 
@@ -694,27 +734,58 @@ unique_sam_regions[['td']] <- report_unique_to_pop(sam_GR[['td']], list_otherGR 
 unique_sam_regions[['ihs']] <- report_unique_to_pop(sam_GR[['ihs']], list_otherGR = list(nzm_GR[['ihs']], cim_GR[['ihs']], ton_GR[['ihs']],nzcau_GR[['ihs']]))
 
 unique_sam_regions[['nsl']] <- report_unique_to_pop(sam_GR[['nsl']], list_otherGR = list(nzm_GR[['nsl']], cim_GR[['nsl']], ton_GR[['nsl']],nzcau_GR[['nsl']]))
+
+unique_sam_regions_genelists <- list()
+for(stat in names(unique_sam_regions)){
+  unique_sam_regions_genelists[[stat]] <- annotate_genes(unique_sam_regions[[stat]])
+  print(table(unique_sam_regions_genelists[[stat]]$LOCATION))
+}
 ```
 
 ## between all statistics by populations
 
-```{r, eval=FALSE}
+```{r}
 nzcau_common <- report_all_common_regions(nzcau_GR)
-nzcau_common_genes <- apply(as.data.frame(nzcau_common),1, function(x){queryUCSC(fromUCSCEnsemblGenes(chromosome = x[1], start = x[2], end = x[3]))})
-sum(width(nz_cau_common))
+#nzcau_common_genes <- apply(as.data.frame(nzcau_common),1, function(x){queryUCSC(fromUCSCEnsemblGenes(chromosome = x[1], start = x[2], end = x[3]))})
+annotate_genes(nzcau_common)
+sum(width(nzcau_common))
 
 nzm_common <- report_all_common_regions(nzm_GR)
-sum(width(nz_cau_common))
+annotate_genes(nzm_common)
+sum(width(nzm_common))
 
 cim_common <- report_all_common_regions(cim_GR)
-sum(width(nz_cau_common))
+annotate_genes(cim_common)
+sum(width(cim_common))
 
 ton_common <- report_all_common_regions(ton_GR)
-sum(width(nz_cau_common))
+annotate_genes(ton_common)
+sum(width(ton_common))
 
 sam_common <- report_all_common_regions(sam_GR)
-sum(width(nz_cau_common))
+annotate_genes(sam_common)
+sum(width(sam_common))
 ```
 
+
+```{r}
+gwas_cat <- read.delim('~/Downloads/gwas_catalog_v1.0.1-associations_e84_r2016-07-10.tsv', header=TRUE, stringsAsFactors = FALSE, sep='\t')
+gwas_cat <- gwas_cat[ gwas_cat$P.VALUE < 5e-8,]
+gwas_interested <- gwas_cat[grep('metabolic syndrome|obesity|diabetes|urate|gout|body mass|lipid traits', gwas_cat$DISEASE.TRAIT, ignore.case = TRUE) ,]
+gwas_interested <- gwas_interested[grep("erectile|lean|autoantibodies|gestational|cancer|psychopharmacol|metaformin|obstructive|interaction|asthmatics|omega|pain|cataracts|time|bilirubin|chain|thyroid|zhi", gwas_interested$DISEASE.TRAIT, invert = TRUE, ignore.case = TRUE),]
+
+gwas_genes <-sort(unique(unlist(strsplit(gwas_interested$REPORTED.GENE.S., split = ', '))))
+
+
+
+```
 # KaKs
 
+
+```{r}
+table(t(as.data.frame(nzcau[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) %in% gwas_genes)
+table(t(as.data.frame(nzm[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) %in% gwas_genes)
+table(t(as.data.frame(cim[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) %in% gwas_genes)
+table(t(as.data.frame(ton[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) %in% gwas_genes)
+table(t(as.data.frame(sam[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) %in% gwas_genes)
+```
