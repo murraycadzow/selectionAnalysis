@@ -1,0 +1,88 @@
+---
+title: "coreExome selection analysis - Inter populations"
+author: ""
+date: "`r format(Sys.Date())`"
+output: 
+  html_document:
+    toc: yes
+--- 
+  
+```{r setup}
+library(dplyr)
+library(ggplot2)
+data_dir <- '/media/xsan/scratch/merrimanlab/murray/working_dir/coreExome_selection/NZ/'
+
+paste0(data_dir,"fst/")
+get_fst <- function(fst_path, pop1,pop2){
+  fst <- list()
+  for(i in 1:22){
+    a= read.table(paste0(fst_path,pop1,'_',pop2,i,'.windowed.weir.fst'), header=TRUE)
+    names(a)=c("chrom", "chrom_start","chrom_end","numSites","weighted_fst","mean_fst")
+    b=a[a$mean_fst != "NaN",]
+    b[b$mean_fst < 0,"mean_fst"] <- 0
+    b$POP1=as.factor(pop1)
+    b$POP2 = as.factor(pop2)
+    fst[[i]] <- b[,c("chrom", "chrom_start","chrom_end","numSites","weighted_fst","mean_fst","POP1","POP2")]
+  }
+  return(do.call(rbind,fst))
+  
+}
+```
+
+```{r load data, message = FALSE}
+pops <- c('nzcau','nzm','cim','ton','sam')
+nzcau <- list()
+nzm <- list()
+cim <- list()
+ton <- list()
+sam <- list()
+for(pop in pops){
+  message(pop)
+  nzcau[[pop]] <- get_fst(paste0(data_dir,"fst/"),"nzcau",pop)
+  nzm[[pop]] <- get_fst(paste0(data_dir,"fst/"),"nzm",pop)
+  cim[[pop]] <- get_fst(paste0(data_dir,"fst/"),"cim",pop)
+  ton[[pop]] <- get_fst(paste0(data_dir,"fst/"),"ton",pop)
+  sam[[pop]] = get_fst(paste0(data_dir,"fst/"),"sam",pop)
+}
+```
+
+## nzcau
+```{r nzcau}
+for( pop in pops){
+  
+  plot(ggplot(data = nzcau[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("nzcau", pop, 'fst')))
+}
+```
+
+## nzm
+```{r nzm}
+for( pop in pops){
+  
+  plot(ggplot(data = nzm[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("nzm", pop, 'fst')))
+}
+```
+
+## cim
+```{r cim}
+for( pop in pops){
+  
+  plot(ggplot(data = cim[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("cim", pop, 'fst')))
+}
+```
+
+## ton
+```{r ton}
+for( pop in pops){
+  
+  plot(ggplot(data = ton[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("ton", pop, 'fst')))
+}
+```
+
+
+## sam
+```{r sam}
+for( pop in pops){
+  
+  plot(ggplot(data = sam[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("sam", pop, 'fst')))
+}
+```
