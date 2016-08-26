@@ -1,0 +1,283 @@
+---
+title: "Probgen16 extra analysis"
+output: html_notebook
+---
+
+```{r, echo = FALSE, message = FALSE}
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(GenomicRanges)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+library(org.Hs.eg.db)
+
+
+data_dir <- '/media/xsan/scratch/merrimanlab/murray/working_dir/coreExome_selection/NZ/dbLoad/'
+
+
+kottgen <- read.csv("~/Git_repos/PPARGC1a/2016/kottgen_table1.csv", header=TRUE, stringsAsFactors = FALSE)
+
+genes <-  kottgen$grail_gene
+
+genes_entrez <- na.omit(select(org.Hs.eg.db, keys = genes, columns = c('SYMBOL','ENTREZID'), keytype="SYMBOL"))
+genes_ucsc <- merge(select(TxDb.Hsapiens.UCSC.hg19.knownGene , columns = c("TXID","TXCHROM","TXSTART","TXEND","TXSTRAND"),keys = genes_entrez$ENTREZID, keytype="GENEID"), genes_entrez, by.x ='GENEID', by.y = "ENTREZID")
+genes_ucscGR <- GRanges(genes_ucsc[!is.na(genes_ucsc$TXID),])
+
+
+get_faw = function(faw, pop,chr){
+  a= read.table(faw, header=TRUE, skip=5, stringsAsFactors = FALSE)
+  names(a)=c("RefStart","Refend","RefMid","chrom_start","chrom_end","Midpoint","NumSites","Missing","S","Eta","Eta_E","Pi","FuLi_D","FuLi_F","FayWu_H")
+  b=a[a$FayWu_H != "NaN",]
+  b$POP=pop
+  b$chrom <- paste0('chr',chr)
+  u <- quantile(b$FayWu_H,0.975, na.rm=TRUE)
+  l <- quantile(b$FayWu_H,0.025, na.rm=TRUE)
+  b$significant <- ifelse(b$FayWu_H < l, 1, 0)
+  return(b[,c("chrom","chrom_start","chrom_end", "FayWu_H","POP", "significant")])
+}
+
+get_tajd = function(tajd,pop, window){
+  a= read.table(tajd, header=TRUE, sep="\t", stringsAsFactors = FALSE)
+  names(a)<-c("chrom","chrom_start","N_SNPS","TajimaD")
+  a$chrom <- paste0('chr',a$chrom)
+  b=a[a$TajimaD != "NaN",]
+  b$POP=as.factor(rep(pop,length(b[,1])))
+  b$chrom_end <- b$chrom_start + window-1
+  u <- quantile(b$TajimaD,0.975, na.rm=TRUE)
+  l <- quantile(b$TajimaD,0.025, na.rm=TRUE)
+  b$significant <- ifelse( b$TajimaD < l, 1, 0)
+  return(b)
+}
+
+get_nsl <- function(nsl_path, pop,chr){
+  a= read.table(paste0(nsl_path,pop,chr,'.nsl.out.100bins.norm'), header=FALSE, stringsAsFactors = FALSE)
+  names(a)=c("marker","chrom_start","freq_1","sL1","sL0","unstd_nsl", "std_nsl", "significant")
+  a$POP=as.factor(pop)
+  a$chrom <- paste0('chr',chr)
+  a$chrom_end <- a$chrom_start + 1
+  return(a[,c("chrom","chrom_start","chrom_end", "std_nsl","POP", "significant")])
+  
+}
+
+
+get_ihs <- function(ihs_path, pop, chr){
+  a= read.table(paste0(ihs_path,pop,chr,'.ihs.out.100bins.norm'), header=FALSE, stringsAsFactors = FALSE)
+  names(a)=c("marker","chrom_start","freq_1","ihh1","ihh0","unstd_ihs", "std_ihs", "significant")
+  a$POP=as.factor(pop)
+  a$chrom <- paste0('chr',chr)
+  a$chrom_end <- a$chrom_start + 1
+  return(a[,c("chrom","chrom_start","chrom_end", "std_ihs","POP", "significant")])
+}
+
+
+get_kaks <- function(kaks_path, pop, chr){
+  a= read.table(paste0(kaks_path,pop,chr,'.kaks'), header=TRUE, stringsAsFactors = FALSE)
+  a$chrom <- paste0('chr',chr)
+  a$POP=as.factor(pop)
+  a$significant <-ifelse(a$ka / (a$ks +1) > 2, 1,0)
+  names(a)[which(names(a) == "GeneName")] <- "gene"
+  return(a)
+}
+
+
+get_fst <- function(fst_path, pop1,pop2, chr){
+  
+  a= read.table(paste0(fst_path,pop1,'_',pop2,chr,'.windowed.weir.fst'), header=TRUE)
+  names(a)=c("chrom", "chrom_start","chrom_end","numSites","weighted_fst","mean_fst")
+  b=a[a$mean_fst != "NaN",]
+  b[b$mean_fst < 0,"mean_fst"] <- 0
+  b$POP=paste0(pop1,"_",pop2)
+  u <- quantile(b$mean_fst, 0.975,na.rm=TRUE)
+  b$significant <- ifelse(b$mean_fst > u, 1, 0)
+  return(b[,c("chrom", "chrom_start","chrom_end","numSites","weighted_fst","mean_fst","POP", 'significant')])
+  
+}
+
+get_xpehh <- function(xpehh_path, pop1, pop2, chr){
+  
+  tmp <- read.table(paste0(xpehh_path,pop1,"_",pop2,'_',chr,".xpehh.out.norm"), header=FALSE, stringsAsFactors = FALSE, sep="\t", skip=1)
+  names(tmp) <- c('chrom', "chrom_start",'gpos', "popA_1_freq", "ihhA",'popB_1_freq',"ihhB", "unstd_xpehh", "norm_xpehh", "significant")
+  tmp$POP <- paste0(pop1,'_',pop2)
+  tmp$chrom <- paste0('chr',tmp$chrom)
+  tmp$chrom_end <- tmp$chrom_start +1
+  return(tmp[,c('chrom', "chrom_start",'chrom_end', "norm_xpehh", "significant","POP")])
+}
+
+```
+
+```{r, echo = FALSE}
+regions <-list()
+pad <- 0
+for(g in unique(genes_ucscGR$SYMBOL)){
+  r <- reduce(genes_ucscGR[genes_ucscGR$SYMBOL == g])
+  regions[[g]] <-GRanges(seqnames = as.character(seqnames(r)@values),IRanges(start= ifelse(min(start(r)) - pad> 0, min(start(r))-pad,0), end =max(end(r)) + pad), SYMBOL= g)
+}
+
+regions <- do.call(rbind,lapply(regions, as.data.frame))
+regions$chrom <- as.numeric(sapply(regions$seqnames, function(x){strsplit(as.character(x),"chr" )[[1]][2]}))
+
+regions_unpadded <-list()
+pad <- 0
+for(g in unique(genes_ucscGR$SYMBOL)){
+  r <- reduce(genes_ucscGR[genes_ucscGR$SYMBOL == g])
+  regions_unpadded[[g]] <-GRanges(seqnames = as.character(seqnames(r)@values),IRanges(start= ifelse(min(start(r)) - pad> 0, min(start(r))-pad,0), end =max(end(r)) + pad), SYMBOL= g)
+}
+
+regions_unpadded <- do.call(rbind,lapply(regions_unpadded, as.data.frame))
+regions_unpadded$chrom <- as.numeric(sapply(regions_unpadded$seqnames, function(x){strsplit(as.character(x),"chr" )[[1]][2]}))
+```
+
+```{r}
+regions_unpadded
+```
+
+```{r}
+# pass in regions (df) and stats (df) for a chr and return df of only the asked regions
+filter_window_chr <- function(regions, stats){
+  tmp <- list()
+  for(gene in regions$SYMBOL){
+    chr <- regions[regions$SYMBOL == gene,]$chrom
+    s <- regions[regions$SYMBOL == gene,]$start
+    e <-regions[regions$SYMBOL == gene,]$end
+    tmp[[gene]] <- stats  %>% filter( (chrom_start < s & chrom_end > s) | (chrom_start > s & chrom_end < e) | (chrom_start < e & chrom_end > e))  %>%  mutate(gene = gene)
+  }
+  return(rbindlist(tmp))
+}
+
+filter_snp_chr <- function(regions, stats){
+  tmp <- list()
+  for(gene in regions$SYMBOL){
+    chr <- regions[regions$SYMBOL == gene,]$chrom
+    s <- regions[regions$SYMBOL == gene,]$start
+    e <-regions[regions$SYMBOL == gene,]$end
+    tmp[[gene]] <- stats  %>% filter( (chrom_start >= s & chrom_end <= e) )  %>% mutate(gene = gene)
+  }
+  return(rbindlist(tmp))
+}
+
+filter_gene_chr <- function(regions, stats){
+  stats[stats$gene %in% regions$SYMBOL,] 
+}
+
+```
+
+```{r load , echo = FALSE}
+load_data <- function(path){
+  pops <- c("NZC","NZM","CIM","SAM","TON")
+  pops2 <- pops
+  poplist <- list()
+  used <- c()
+  
+  for(pop in pops){
+    used <- c(used, pop)
+    message("NEW POP")
+    p  <- list()
+    for(chr in regions$chrom){
+      
+      p[['faw']][[chr]] <-filter_window_chr(regions[regions$chrom == chr,], get_faw(paste0(path,'/FAWH/',pop,chr,".faw"), pop,chr ))
+      
+      p[['td']][[chr]] <-filter_window_chr(regions[regions$chrom == chr,], get_tajd(paste0(path,'/TD/',pop,chr,".taj_d"), pop, 30000 ))
+      
+      p[['ihs']][[chr]] <- filter_snp_chr(regions[regions$chrom == chr,], get_ihs(paste0(path,'/IHS/'), pop,chr ))
+      
+      p[['nsl']][[chr]] <- filter_snp_chr(regions[regions$chrom == chr,], get_nsl(paste0(path,'/NSL/'), pop,chr ))
+      
+      p[['kaks']][[chr]] <- filter_gene_chr(regions[regions$chrom == chr,], get_kaks(paste0(path,'/KAKS/'),pop, chr))
+      p2 <- list()
+      # if(length(used) < length(pops)){
+      #   for(pop2 in pops2[!pops2 %in% used]){
+      #     
+      #   }
+      #   
+      # }
+      for(pop2 in pops[!pops %in% pop]){
+        p2[['fst']][[chr]][[pop2]] <- filter_window_chr(regions[regions$chrom == chr,], get_fst(paste0(path,'/FST/'),pop,pop2, chr))
+        p2[['xpehh']][[chr]][[pop2]] <- filter_snp_chr(regions[regions$chrom == chr,], get_xpehh(paste0(path,'/XPEHH/'),pop,pop2, chr))
+      }
+      p[['fst']][[chr]] <- rbindlist(p2[['fst']][[chr]])
+      p[['xpehh']][[chr]] <- rbindlist(p2[['xpehh']][[chr]])
+    }
+    p[['faw']] <- rbindlist(p[['faw']])
+    p[['td']] <- rbindlist(p[['td']])
+    p[['ihs']] <- rbindlist(p[['ihs']])
+    p[['nsl']] <- rbindlist(p[['nsl']])
+    p[['kaks']] <- rbindlist(p[['kaks']])
+    p[['xpehh']] <- rbindlist(p[['xpehh']])
+    p[['fst']] <- rbindlist(p[['fst']])
+    
+    poplist[[pop]] <- p
+    pops2 <- pops2[]
+    print(pop)
+  }
+  return(poplist)
+}
+```
+
+```{r, message=FALSE}
+if(!file.exists("popdata_23-8-16.RData")){
+poplist <- load_data(data_dir) # takes approx 20 min
+#poplist[['TON']][['xpehh']] <- data.table(chrom = NA, chrom_start = NA, chrom_end = NA, norm_xpehh = NA, significant = NA, POP = NA, gene = NA)
+save(poplist, file= "popdata_23-8-16.RData")
+}else{
+  load("popdata_23-8-16.RData")
+}
+```
+
+```{r}
+#lapply(poplist[['TON']],head)
+```
+
+```{r}
+lapply(poplist[['NZM']], function(x){return(nrow(filter(x, significant == 1)))})
+
+lapply(poplist, function(y){lapply(y, function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))})})
+```
+
+```{r}
+table(unlist(lapply(lapply(poplist[['NZC']], function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))
+
+```
+```{r}
+refine_stats <- function(stats, popstats ){
+  tmp <- list()
+  for(stat in stats){
+    tmp[[stat]] <-popstats[[stat]]  
+  
+  }
+  return(tmp)
+}
+```
+
+```{r}
+for(pop in names(poplist)){
+  print(pop)
+print(as.data.frame(table(unlist(lapply(lapply(refine_stats(c("td","faw"), poplist[[pop]]), function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))))
+}
+```
+
+```{r}
+for(pop in names(poplist)){
+  print(pop)
+print(as.data.frame(table(unlist(lapply(lapply(refine_stats(c("ihs",'nsl'), poplist[[pop]]), function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))))
+}
+```
+
+```{r}
+for(pop in names(poplist)){
+  print(pop)
+print(as.data.frame(table(unlist(lapply(lapply(refine_stats(c("kaks"), poplist[[pop]]), function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))))
+}
+```
+
+```{r}
+sink(file='~/Dropbox/selectionAnalysis/Unimputed_Analysis/CoreExome_selection_analysis/intra_stats.txt')
+for(pop in names(poplist)){
+  for(stat in c('td','faw','ihs','nsl', 'kaks')){
+    print(pop)
+    print(stat)
+    print(poplist[[pop]][[stat]] %>% group_by(gene) %>% mutate(per = sum(significant)/nrow(as.data.frame(significant)))  %>% dplyr::select(gene, per)  %>% unique() %>% as.data.frame())
+  }
+}
+sink()
+```
+

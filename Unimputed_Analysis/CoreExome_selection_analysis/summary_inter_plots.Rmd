@@ -10,6 +10,7 @@ output:
 ```{r setup}
 library(dplyr)
 library(ggplot2)
+library(Gvis)
 data_dir <- '/media/xsan/scratch/merrimanlab/murray/working_dir/coreExome_selection/NZ/'
 
 paste0(data_dir,"fst/")
@@ -27,30 +28,64 @@ get_fst <- function(fst_path, pop1,pop2){
   return(do.call(rbind,fst))
   
 }
+
+get_xpehh <- function(xpehh_path, pop1, pop2){
+  xpehh <- list()
+  for(i in 1:22){
+    tmp <- read.table(paste0(xpehh_path,pop1,"_",pop2,'_',i,".xpehh.out.norm"), header=FALSE, stringsAsFactors = FALSE, sep="\t", skip=1)
+    names(tmp) <- c('chrom', "chrom_start",'gpos', "popA_1_freq", "ihhA",'popB_1_freq',"ihhB", "unstd_xpehh", "norm_xpehh", "significant")
+    tmp$POP1 <- pop1
+    tmp$POP2 <- pop2
+    tmp$chrom <- paste0('chr',tmp$chrom)
+    tmp$chrom_end <- tmp$chrom_start +1
+    xpehh[[i]]<- tmp[,c('chrom', "chrom_start",'chrom_end', "popA_1_freq", "ihhA",'popB_1_freq',"ihhB", "unstd_xpehh", "norm_xpehh", "significant", "POP1","POP2")]
+  }
+  return(do.call(rbind,xpehh))
+}
 ```
 
 ```{r load data, message = FALSE}
 pops <- c('nzcau','nzm','cim','ton','sam')
-nzcau <- list()
-nzm <- list()
-cim <- list()
-ton <- list()
-sam <- list()
+nzcau_fst <- list()
+nzm_fst <- list()
+cim_fst <- list()
+ton_fst <- list()
+sam_fst <- list()
 for(pop in pops){
   message(pop)
-  nzcau[[pop]] <- get_fst(paste0(data_dir,"fst/"),"nzcau",pop)
-  nzm[[pop]] <- get_fst(paste0(data_dir,"fst/"),"nzm",pop)
-  cim[[pop]] <- get_fst(paste0(data_dir,"fst/"),"cim",pop)
-  ton[[pop]] <- get_fst(paste0(data_dir,"fst/"),"ton",pop)
-  sam[[pop]] = get_fst(paste0(data_dir,"fst/"),"sam",pop)
+  nzcau_fst[[pop]] <- get_fst(paste0(data_dir,"fst/"),"nzcau",pop)
+  nzm_fst[[pop]] <- get_fst(paste0(data_dir,"fst/"),"nzm",pop)
+  cim_fst[[pop]] <- get_fst(paste0(data_dir,"fst/"),"cim",pop)
+  ton_fst[[pop]] <- get_fst(paste0(data_dir,"fst/"),"ton",pop)
+  sam_fst[[pop]] <- get_fst(paste0(data_dir,"fst/"),"sam",pop)
 }
-```
+
+nzcau_xpehh <-list()
+nzm_xpehh <-list()
+cim_xpehh <- list()
+sam_xpehh <-list()
+
+nzcau_xpehh <- list(nzm = get_xpehh(paste0(data_dir,"xpehh/"),"nzcau",'nzm'),
+                    cim = get_xpehh(paste0(data_dir,"xpehh/"),"nzcau",'cim'),
+                    ton = get_xpehh(paste0(data_dir,"xpehh/"),"nzcau",'ton'),
+                    sam = get_xpehh(paste0(data_dir,"xpehh/"),"nzcau",'sam')
+                    )
+nzm_xpehh <- list(cim = get_xpehh(paste0(data_dir,"xpehh/"),"nzm",'cim'),
+                  ton = get_xpehh(paste0(data_dir,"xpehh/"),"nzm",'ton'),
+                  sam= get_xpehh(paste0(data_dir,"xpehh/"),"nzm",'sam')
+                  )
+cim_xpehh <- list(ton = get_xpehh(paste0(data_dir,"xpehh/"),'cim','ton'),
+                  sam = get_xpehh(paste0(data_dir,"xpehh/"),'cim','sam')
+                  )
+
+sam_xpehh <- list(ton = get_xpehh(paste0(data_dir,"xpehh/"),'sam','ton'))
+ %>%  %>% ```
 
 ## nzcau
 ```{r nzcau}
 for( pop in pops){
   
-  plot(ggplot(data = nzcau[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("nzcau", pop, 'fst')))
+  plot(ggplot(data = nzcau_fst[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("nzcau", pop, 'fst')))
 }
 ```
 
@@ -58,7 +93,7 @@ for( pop in pops){
 ```{r nzm}
 for( pop in pops){
   
-  plot(ggplot(data = nzm[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("nzm", pop, 'fst')))
+  plot(ggplot(data = nzm_fst[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("nzm", pop, 'fst')))
 }
 ```
 
@@ -66,7 +101,7 @@ for( pop in pops){
 ```{r cim}
 for( pop in pops){
   
-  plot(ggplot(data = cim[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("cim", pop, 'fst')))
+  plot(ggplot(data = cim_fst[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("cim", pop, 'fst')))
 }
 ```
 
@@ -74,7 +109,7 @@ for( pop in pops){
 ```{r ton}
 for( pop in pops){
   
-  plot(ggplot(data = ton[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("ton", pop, 'fst')))
+  plot(ggplot(data = ton_fst[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("ton", pop, 'fst')))
 }
 ```
 
@@ -83,6 +118,11 @@ for( pop in pops){
 ```{r sam}
 for( pop in pops){
   
-  plot(ggplot(data = sam[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("sam", pop, 'fst')))
+  plot(ggplot(data = sam_fst[[pop]], aes(x = chrom_start, y = mean_fst)) + geom_point() + facet_wrap(~chrom, scales = 'free_x') + ggtitle(paste("sam", pop, 'fst')))
 }
 ```
+
+
+# xpehh
+
+

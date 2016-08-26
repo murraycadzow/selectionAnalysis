@@ -1,13 +1,13 @@
 ---
 title: "coreExome selection analysis"
-author: ""
-date: "`r format(Sys.Date())`"
-output: 
-  html_document:
-    toc: yes
-
+author: ''
+date: '`r format(Sys.Date())`'
+output:
+  word_document: default
+  toc: yes
+  html_document: null
 --- 
-
+  
 ```{r setup, echo = FALSE, message=FALSE}
 library(data.table)
 library(dplyr)
@@ -120,7 +120,7 @@ report_all_common_regions <- function(listGR){
     return(intsec)
   }
   for(i in 3:length(listGR)){
-   intsec <- intersect(intsec, listGR[[i]])
+    intsec <- intersect(intsec, listGR[[i]])
   } 
   return(intsec)
 }
@@ -134,7 +134,7 @@ combine_multi_GR <- function(listGR){
     return(uni)
   }
   for(i in 3:length(listGR)){
-   uni <- union(uni, listGR[[i]])
+    uni <- union(uni, listGR[[i]])
   } 
   return(reduce(uni))
 }
@@ -206,7 +206,9 @@ gwas_genes_entrez <- na.omit(select(org.Hs.eg.db, keys = gwas_genes, columns = c
 gwas_genes_ucsc <- merge(select(TxDb.Hsapiens.UCSC.hg19.knownGene , columns = c("TXID","TXCHROM","TXSTART","TXEND","TXSTRAND"),keys = gwas_genes_entrez$ENTREZID, keytype="GENEID"), gwas_genes_entrez, by.x ='GENEID', by.y = "ENTREZID")
 gwas_genes_ucscGR <- GRanges(gwas_genes_ucsc[!is.na(gwas_genes_ucsc$TXID),])
 
-urate_goutGR <- gwas_genes_ucscGR[gwas_genes_ucscGR$SYMBOL %in% unique(unlist(strsplit(gwas_interested[grep("gout|urate",gwas_interested$DISEASE.TRAIT, ignore.case = TRUE),]$REPORTED.GENE.S., ', '))),]
+urate_gout <- read.csv('~/Git_repos/UkBioBank/Gout_GWAS/kottgen_table1.csv', stringsAsFactors = FALSE, header= TRUE)
+urate_gout <- unlist(strsplit(unique(urate_gout$closest_gene,urate_gout$grail_gene),' '))
+urate_goutGR <- gwas_genes_ucscGR[gwas_genes_ucscGR$SYMBOL %in% urate_gout,]
 
 obesity_GR <- gwas_genes_ucscGR[gwas_genes_ucscGR$SYMBOL %in% unique(unlist(strsplit(gwas_interested[grep("obesity|body mass",gwas_interested$DISEASE.TRAIT, ignore.case = TRUE),]$REPORTED.GENE.S., ', '))),]
 
@@ -227,7 +229,7 @@ annotate_genes <- function(GR){
     n <- merge(as.data.frame(loc, row.names = NULL), symbols, by.x = "GENEID", by.y = "ENTREZID", all.x=TRUE)
     return(n)
   } else {
-  return(as.data.frame(loc, row.names = NULL))
+    return(as.data.frame(loc, row.names = NULL))
   }
 }
 
@@ -235,37 +237,7 @@ annotate_genes <- function(GR){
 
 
 
-# Fay and Wu's H
 
-## nzcau
-```{r nzc faw}
-ggplot(nzcau[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(nzcau[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
-```
-
-## nzm
-```{r nzm faw}
-ggplot(nzm[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(nzm[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
-```
-
-## cim
-```{r cim faw}
-ggplot(cim[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(cim[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
-```
-
-## ton
-```{r ton faw}
-ggplot(ton[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(ton[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
-```
-
-## sam
-```{r sam faw}
-ggplot(sam[['faw']], aes(x  = chrom_start, y = FayWu_H)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(sam[['faw']], aes(y = FayWu_H, x = factor(chrom))) + geom_boxplot()
-```
 
 ## combined boxplot
 ```{r}
@@ -315,36 +287,6 @@ heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
 
 
 # Tajima's D
-
-## nzcau
-```{r nzc td}
-ggplot(nzcau[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(nzcau[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
-```
-
-## nzm
-```{r nzm td}
-ggplot(nzm[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(nzm[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
-```
-
-## cim
-```{r cim td}
-ggplot(cim[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(cim[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
-```
-
-## ton
-```{r ton td}
-ggplot(ton[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(ton[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
-```
-
-## sam
-```{r sam td}
-ggplot(sam[['td']], aes(x  = chrom_start, y = TajimaD)) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-ggplot(sam[['td']], aes(y = TajimaD, x = factor(chrom))) + geom_boxplot()
-```
 
 
 ## combined
@@ -396,32 +338,6 @@ heatmap(diff_mat, distfun = function(y) dist(y, method="euclidean"))
 ```
 
 # iHS
-
-## nzcau
-```{r}
-ggplot(nzcau[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-
-## nzm
-```{r}
-ggplot(nzm[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## cim
-```{r}
-ggplot(cim[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## ton
-```{r}
-ggplot(ton[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## sam
-```{r}
-ggplot(sam[['ihs']], aes(x = chrom_start, y = abs(std_ihs), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
 
 
 ##combined
@@ -509,26 +425,7 @@ sam_regions$POP <- "sam"
 sam_regions <- GRanges(sam_regions)
 sam_ihs_regions <- GRanges(combined_ihs %>% filter(POP == "sam" & significant == 1))
 
-library(Gviz)
-gen = "hg19"
-max_ihs <- max(abs(combined_ihs$std_ihs))
-min_ihs <- min(abs(combined_ihs[combined_ihs$significant == 1,]$std_ihs))
-for(i in paste0('chr',1:22)){
-  print(paste("Chromosome", i))
-plotTracks(list(DataTrack(cau_ihs_regions[seqnames(cau_ihs_regions) == i], data = abs(cau_ihs_regions[seqnames(cau_ihs_regions) == i]$std_ihs), name = "nzcau ihs", col = 'red',ylim = c(min_ihs, max_ihs)),
-                cau = AnnotationTrack(cau_regions[seqnames(cau_regions) == i & width(cau_regions) >= 1], name = "nzcau key peaks"),
-                DataTrack(nzm_ihs_regions[seqnames(nzm_ihs_regions) == i], data = abs(nzm_ihs_regions[seqnames(nzm_ihs_regions) ==i]$std_ihs), name = "nzm ihs", col = 'blue',ylim = c(min_ihs, max_ihs)),
-                nzm = AnnotationTrack(nzm_regions[seqnames(nzm_regions) == i & width(nzm_regions) > 1]),
-                DataTrack(cim_ihs_regions[seqnames(cim_ihs_regions) == i], data = abs(cim_ihs_regions[seqnames(cim_ihs_regions) == i]$std_ihs), name = 'cim ihs', col = 'orange',ylim = c(min_ihs, max_ihs)),
-                cim = AnnotationTrack(cim_regions[seqnames(cim_regions)== i & width(cim_regions) > 1]),
-                DataTrack(ton_ihs_regions[seqnames(ton_ihs_regions) == i], data = abs(ton_ihs_regions[seqnames(ton_ihs_regions) == i]$std_ihs), name = 'ton ihs', col='green',ylim = c(min_ihs, max_ihs)),
-                ton = AnnotationTrack(ton_regions[seqnames(ton_regions)== i & width(ton_regions) > 1]),
-                DataTrack(sam_ihs_regions[seqnames(sam_ihs_regions) == i], data = abs(sam_ihs_regions[seqnames(sam_ihs_regions) == i]$std_ihs), name = 'sam ihs', col = 'purple',ylim = c(min_ihs, max_ihs)),
-                sam = AnnotationTrack(sam_regions[seqnames(sam_regions)== i & width(sam_regions) > 1]),
-                GenomeAxisTrack()
-                )
-           )
-}
+
 ```
 
 
@@ -536,31 +433,6 @@ plotTracks(list(DataTrack(cau_ihs_regions[seqnames(cau_ihs_regions) == i], data 
 
 
 # nSL
-
-## nzcau
-```{r}
-ggplot(nzcau[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## nzm
-```{r}
-ggplot(nzm[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## cim
-```{r}
-ggplot(cim[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## ton
-```{r}
-ggplot(ton[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
-
-## sam
-```{r}
-ggplot(sam[['nsl']], aes(x = chrom_start, y = abs(std_nsl), color = as.factor(significant))) + geom_point() + facet_wrap(~chrom, scales = 'free_x')
-```
 
 
 ##combined
@@ -620,26 +492,7 @@ sam_regions <- GRanges(sam_regions)
 sam_nsl_regions <- GRanges(combined_nsl %>% filter(POP == "sam" & significant == 1))
 print(table(annotate_genes(sam_nsl_regions)$LOCATION))
 
-library(Gviz)
-gen = "hg19"
-max_nsl <- max(abs(combined_nsl$std_nsl))
-min_nsl <- min(abs(combined_nsl[combined_nsl$significant == 1,]$std_nsl))
-for(i in paste0('chr',1:22)){
-  print(paste("Chromosome", i))
-plotTracks(list(DataTrack(cau_nsl_regions[seqnames(cau_nsl_regions) == i], data = abs(cau_nsl_regions[seqnames(cau_nsl_regions) == i]$std_nsl), name = "nzcau nsl", col = 'red', ylim = c(min_nsl, max_nsl)),
-                cau = AnnotationTrack(cau_regions[seqnames(cau_regions) == i & width(cau_regions) >= 1], name = "nzcau key peaks"),
-                DataTrack(nzm_nsl_regions[seqnames(nzm_nsl_regions) == i], data = abs(nzm_nsl_regions[seqnames(nzm_nsl_regions) ==i]$std_nsl), name = "nzm nsl", col = 'blue', ylim = c(min_nsl, max_nsl)),
-                nzm = AnnotationTrack(nzm_regions[seqnames(nzm_regions) == i & width(nzm_regions) > 1]),
-                DataTrack(cim_nsl_regions[seqnames(cim_nsl_regions) == i], data = abs(cim_nsl_regions[seqnames(cim_nsl_regions) == i]$std_nsl), name = 'cim nsl', col = 'orange', ylim = c(min_nsl, max_nsl)),
-                cim = AnnotationTrack(cim_regions[seqnames(cim_regions)== i & width(cim_regions) > 1]),
-                DataTrack(ton_nsl_regions[seqnames(ton_nsl_regions) == i], data = abs(ton_nsl_regions[seqnames(ton_nsl_regions) == i]$std_nsl), name = 'ton nsl', col='green', ylim = c(min_nsl, max_nsl)),
-                ton = AnnotationTrack(ton_regions[seqnames(ton_regions)== i & width(ton_regions) > 1]),
-                DataTrack(sam_nsl_regions[seqnames(sam_nsl_regions) == i], data = abs(sam_nsl_regions[seqnames(sam_nsl_regions) == i]$std_nsl), name = 'sam nsl', col = 'purple', ylim = c(min_nsl, max_nsl)),
-                sam = AnnotationTrack(sam_regions[seqnames(sam_regions)== i & width(sam_regions) > 1]),
-                GenomeAxisTrack()
-                )
-           )
-}
+
 ```
 
 
@@ -889,134 +742,3 @@ as.data.frame(GenomicRanges::subsetByOverlaps(urate_goutGR,sam_nsl_regions),row.
 table(urate_goutGR$SYMBOL %in% t(as.data.frame(sam[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
 ```
 
-# Obesity
-## nzcau
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(nzcau_fawGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( obesity_GR,nzcau_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzcau_tdGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,nzcau_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cau_ihs_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,cau_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cau_nsl_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,cau_nsl_regions),row.names = NULL)
-table(obesity_GR$SYMBOL %in% t(as.data.frame(nzcau[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## nzm
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_fawGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( obesity_GR,nzm_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_tdGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,nzm_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_ihs_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,nzm_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_nsl_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,nzm_nsl_regions),row.names = NULL)
-table(obesity_GR$SYMBOL %in% t(as.data.frame(nzm[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## cim
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_fawGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( obesity_GR,cim_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_tdGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,cim_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_ihs_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,cim_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_nsl_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,cim_nsl_regions),row.names = NULL)
-table(obesity_GR$SYMBOL %in% t(as.data.frame(cim[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## ton
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_fawGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( obesity_GR,ton_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_tdGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,ton_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_ihs_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,ton_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_nsl_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,ton_nsl_regions),row.names = NULL)
-table(obesity_GR$SYMBOL %in% t(as.data.frame(ton[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## sam
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_fawGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( obesity_GR,sam_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_tdGR, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,sam_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_ihs_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,sam_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_nsl_regions, obesity_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(obesity_GR,sam_nsl_regions),row.names = NULL)
-table(obesity_GR$SYMBOL %in% t(as.data.frame(sam[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-# Diabetes
-## nzcau
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(nzcau_fawGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( diabetes_GR,nzcau_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzcau_tdGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,nzcau_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cau_ihs_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,cau_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cau_nsl_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,cau_nsl_regions),row.names = NULL)
-table(diabetes_GR$SYMBOL %in% t(as.data.frame(nzcau[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## nzm
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_fawGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( diabetes_GR,nzm_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_tdGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,nzm_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_ihs_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,nzm_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(nzm_nsl_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,nzm_nsl_regions),row.names = NULL)
-table(diabetes_GR$SYMBOL %in% t(as.data.frame(nzm[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## cim
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_fawGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( diabetes_GR,cim_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_tdGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,cim_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_ihs_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,cim_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(cim_nsl_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,cim_nsl_regions),row.names = NULL)
-table(diabetes_GR$SYMBOL %in% t(as.data.frame(cim[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## ton
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_fawGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( diabetes_GR,ton_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_tdGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,ton_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_ihs_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,ton_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(ton_nsl_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,ton_nsl_regions),row.names = NULL)
-table(diabetes_GR$SYMBOL %in% t(as.data.frame(ton[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
-
-## sam
-```{r}
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_fawGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps( diabetes_GR,sam_fawGR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_tdGR, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,sam_tdGR ),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_ihs_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,sam_ihs_regions),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(sam_nsl_regions, diabetes_GR),row.names = NULL)
-as.data.frame(GenomicRanges::subsetByOverlaps(diabetes_GR,sam_nsl_regions),row.names = NULL)
-table(diabetes_GR$SYMBOL %in% t(as.data.frame(sam[['kaks']]  %>% filter(ka/ks > 2)  %>% dplyr::select(GeneName))) )
-```
