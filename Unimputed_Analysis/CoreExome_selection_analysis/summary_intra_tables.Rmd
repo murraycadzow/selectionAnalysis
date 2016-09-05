@@ -3,9 +3,8 @@ title: "coreExome selection analysis"
 author: ''
 date: '`r format(Sys.Date())`'
 output:
-  word_document: default
+  html_document:
   toc: yes
-  html_document: null
 --- 
   
 ```{r setup, echo = FALSE, message=FALSE}

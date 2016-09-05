@@ -1,6 +1,8 @@
 ---
 title: "Probgen16 extra analysis"
-output: html_notebook
+output:
+  html_document: default
+  html_notebook: default
 ---
 
 ```{r, echo = FALSE, message = FALSE}
@@ -12,7 +14,7 @@ library(TxDb.Hsapiens.UCSC.hg19.knownGene)
 library(org.Hs.eg.db)
 
 
-data_dir <- '/media/xsan/scratch/merrimanlab/murray/working_dir/coreExome_selection/NZ/dbLoad/'
+data_dir <- '~/BACKUP/NZ/dbLoad/'
 
 
 kottgen <- read.csv("~/Git_repos/PPARGC1a/2016/kottgen_table1.csv", header=TRUE, stringsAsFactors = FALSE)
@@ -30,8 +32,8 @@ get_faw = function(faw, pop,chr){
   b=a[a$FayWu_H != "NaN",]
   b$POP=pop
   b$chrom <- paste0('chr',chr)
-  u <- quantile(b$FayWu_H,0.975, na.rm=TRUE)
-  l <- quantile(b$FayWu_H,0.025, na.rm=TRUE)
+  u <- quantile(b$FayWu_H,0.99, na.rm=TRUE)
+  l <- quantile(b$FayWu_H,0.01, na.rm=TRUE)
   b$significant <- ifelse(b$FayWu_H < l, 1, 0)
   return(b[,c("chrom","chrom_start","chrom_end", "FayWu_H","POP", "significant")])
 }
@@ -43,8 +45,8 @@ get_tajd = function(tajd,pop, window){
   b=a[a$TajimaD != "NaN",]
   b$POP=as.factor(rep(pop,length(b[,1])))
   b$chrom_end <- b$chrom_start + window-1
-  u <- quantile(b$TajimaD,0.975, na.rm=TRUE)
-  l <- quantile(b$TajimaD,0.025, na.rm=TRUE)
+  u <- quantile(b$TajimaD,0.99, na.rm=TRUE)
+  l <- quantile(b$TajimaD,0.01, na.rm=TRUE)
   b$significant <- ifelse( b$TajimaD < l, 1, 0)
   return(b)
 }
@@ -221,6 +223,12 @@ save(poplist, file= "popdata_23-8-16.RData")
 }else{
   load("popdata_23-8-16.RData")
 }
+
+for(s in names(poplist[[1]])){
+ for(n in names(poplist)){
+    poplist[[n]][[s]]$stat <- s
+  }
+}
 ```
 
 ```{r}
@@ -232,6 +240,26 @@ lapply(poplist[['NZM']], function(x){return(nrow(filter(x, significant == 1)))})
 
 lapply(poplist, function(y){lapply(y, function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))})})
 ```
+```{r, eval = TRUE, echo=FALSE}
+annotate_genes <- function(GR){
+  target <- GRanges(seqnames(GR), IRanges(GR@ranges))
+  loc <- locateVariants(target, TxDb.Hsapiens.UCSC.hg19.knownGene, AllVariants(), ignore.strand)
+  loc <- loc[!is.na(loc$GENEID),]
+  if(nrow(as.data.frame(loc, row.names = NULL)) > 0){
+    colnames(org.Hs.eg.db)
+    cols <- c("SYMBOL")
+    keys <- na.omit(unique(loc$GENEID))
+    symbols <- select(org.Hs.eg.db, keys, cols, keytype="ENTREZID")
+    #convert to gene symbol from entrez id
+    n <- merge(as.data.frame(loc, row.names = NULL), symbols, by.x = "GENEID", by.y = "ENTREZID", all.x=TRUE)
+    return(n)
+  } else {
+    return(as.data.frame(loc, row.names = NULL))
+  }
+}
+
+```
+
 
 ```{r}
 table(unlist(lapply(lapply(poplist[['NZC']], function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))
@@ -263,14 +291,30 @@ print(as.data.frame(table(unlist(lapply(lapply(refine_stats(c("ihs",'nsl'), popl
 ```
 
 ```{r}
+sink('intra_summary.txt')
 for(pop in names(poplist)){
   print(pop)
 print(as.data.frame(table(unlist(lapply(lapply(refine_stats(c("kaks"), poplist[[pop]]), function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))))
 }
+
+for(pop in names(poplist)){
+  print(pop)
+print(as.data.frame(table(unlist(lapply(lapply(refine_stats(c('ihs','nsl','td','faw'), poplist[[pop]]), function(x){return(as.data.frame( filter(x, significant == 1)   %>% group_by(gene)  %>% tally() ))}), function(x){return(as.vector(x$gene))})))))
+}
+sink()
+```
+
+```{r}
+
 ```
 
 ```{r}
 sink(file='~/Dropbox/selectionAnalysis/Unimputed_Analysis/CoreExome_selection_analysis/intra_stats.txt')
+
+sink()
+```
+
+```{r}
 for(pop in names(poplist)){
   for(stat in c('td','faw','ihs','nsl', 'kaks')){
     print(pop)
@@ -278,6 +322,82 @@ for(pop in names(poplist)){
     print(poplist[[pop]][[stat]] %>% group_by(gene) %>% mutate(per = sum(significant)/nrow(as.data.frame(significant)))  %>% dplyr::select(gene, per)  %>% unique() %>% as.data.frame())
   }
 }
-sink()
+```
+
+
+```{r}
+for(pop in names(poplist)){
+  for(stat in c('xpehh','fst')){
+    print(pop)
+    print(stat)
+    print(poplist[[pop]][[stat]] %>% group_by(gene) %>% mutate(per = sum(significant)/nrow(as.data.frame(significant)))  %>% dplyr::select(gene, per)  %>% unique() %>% filter(per > 0) %>%  as.data.frame())
+  }
+}
+```
+
+```{r}
+rreb1_ihs  <- rbindlist(lapply(poplist, function(x){x[['ihs']] %>% dplyr::filter(gene =="RREB1")}))
+ggplot(rreb1_ihs, aes(x= chrom_start, y = abs(std_ihs))) + geom_point(aes(colour = significant)) + facet_grid(~POP) + theme_bw() + geom_hline(yintercept = 2)
+```
+
+```{r}
+rreb1_nsl  <- rbindlist(lapply(poplist, function(x){x[['nsl']] %>% dplyr::filter(gene =="RREB1")}))
+ggplot(rreb1_nsl, aes(x= chrom_start, y = abs(std_nsl))) + geom_point(aes(colour = as.factor(significant))) + facet_grid(~POP) + theme_bw() + geom_hline(yintercept = 2)
+```
+
+```{r}
+rreb1_faw  <- rbindlist(lapply(poplist, function(x){x[['faw']] %>% dplyr::filter(gene =="RREB1")}))
+ggplot(rreb1_faw, aes(x= chrom_start, y = FayWu_H)) + geom_point(aes(colour = as.factor(significant))) + facet_grid(~POP) + theme_bw()
+```
+
+```{r}
+rreb1_td  <- rbindlist(lapply(poplist, function(x){x[['td']] %>% dplyr::filter(gene =="RREB1")}))
+ggplot(rreb1_td, aes(x= chrom_start, y = TajimaD)) + geom_point(aes(colour = as.factor(significant))) + facet_grid(~POP) + theme_bw()
+```
+
+```{r}
+library(EnsDb.Hsapiens.v75)
+edb <- EnsDb.Hsapiens.v75
+txtypes <- genes(edb, columns=c("gene_name", "gene_biotype", "tx_biotype", "tx_id"))
+txtypes[txtypes$gene_name == "LCT"]
+```
+```{r}
+rbindlist(lapply(poplist, function(x){x[['xpehh']] %>% dplyr::filter(significant ==1)}))  %>% dplyr::select(POP,gene)  %>% group_by(gene,POP)  %>%  tally()  %>% ggplot(., aes(x= gene, y = n)) + geom_bar(stat = 'identity',aes(group = POP, colour = as.factor(POP), fill = as.factor(POP)), position = 'dodge')
+```
+```{r}
+
+```
+
+```{r}
+rbindlist(lapply(poplist, function(x){x[['fst']] %>% dplyr::filter(significant ==1)}))  %>% dplyr::select(POP,gene)  %>% group_by(gene,POP)  %>%  tally()  %>% ggplot(., aes(x= gene, y = n)) + geom_bar(stat = 'identity',aes(group = POP, colour = as.factor(POP), fill = as.factor(POP)), position = 'dodge')
+```
+
+
+
+```{r}
+rbindlist(lapply(poplist, function(x){x[['ihs']] %>% dplyr::filter(significant ==1)}))  %>% dplyr::select(POP,gene)  %>% group_by(gene,POP)  %>%  tally()  %>% ggplot(., aes(x= gene, y = n)) + geom_bar(stat = 'identity',aes(group = POP, colour = as.factor(POP), fill = as.factor(POP)), position = 'dodge')
+```
+```{r}
+library(cowplot)
+#lapply(poplist[['NZM']], function(x){ dplyr::select(x, POP,gene, stat,significant)  %>% filter(significant == 1)})
+b <- data.frame(gene = rep(regions$SYMBOL, 5), POP2 = c(rep("NZC", nrow(regions)), rep("NZM",nrow(regions)), rep("CIM", nrow(regions)), rep("SAM",nrow(regions)), rep("TON", nrow(regions)) ))
+
+d <- rbindlist(lapply(poplist, function(x){rbindlist(lapply(x, function(y){dplyr::filter(y, significant ==1) %>% dplyr::select(POP,gene, stat)})) }))  %>% mutate(POP2 = substr(POP,1,3))  %>% group_by(gene,POP2)  %>%    unique()  %>% tally()
+
+m <- merge(b, d, by= c('gene','POP2'), all.x = TRUE)
+
+m$POP2 <- factor(m$POP2, levels= c('NZC', 'NZM','CIM','SAM','TON'))
+levels(m$POP2) <- c('New Zealand European', "New Zealand Māori","Cook Island Māori", "Samoan"," Tongan")
+m  %>% arrange(gene)  %>% ggplot(., aes(x= POP2, y = n)) + geom_bar(stat = 'identity',aes(fill =POP2, group = POP2), position = position_dodge()) +theme_classic() + theme(axis.text.x=element_blank(), axis.line.x = element_blank(), axis.line.y = element_line(color = 'black'), axis.ticks.x = element_blank(),axis.title.x = element_text(size = 18, family = 'serif') ,axis.text.y = element_text(size = 16), axis.title.y = element_text(size=18, family = 'serif'), strip.text = element_text(size = 16, face= 'italic', family = 'serif')) + ylim(c(0,7)) + facet_wrap(~gene, switch = 'x') + theme(legend.position = 'bottom', legend.title = element_blank(), legend.text = element_text(size = 16, family= 'serif')) + scale_fill_manual(values=c("#ffc20e", "#d7191c", "#f68b89", "#abd9e9", "#0e4e96")) + ylab('Number of Selection Statistics\nIndicative of Selection') + xlab('Urate Associated Locus') + geom_hline(yintercept = 0)
+```
+
+```{r}
+e <-rbindlist(lapply(poplist, function(x){rbindlist(lapply(x, function(y){dplyr::filter(y, significant ==1 & stat != 'kaks') %>% dplyr::select(POP,gene, stat)})) }))  %>% mutate(POP2 = substr(POP,1,3))  %>% group_by(gene,POP2)  %>%    unique()  %>% tally()
+p <- merge(b, d, by= c('gene','POP2'), all.x = TRUE)
+n<- merge(p, e, by= c('gene','POP2'), all.x = TRUE)
+
+n$POP2 <- factor(n$POP2, levels= c('NZC', 'NZM','CIM','SAM','TON'))
+levels(n$POP2) <- c('New Zealand Caucasian', "New Zealand Maori","Cook Island Maori", "Samoan"," Tongan")
+n %>% arrange(gene)  %>% ggplot(., aes(x= POP2, y = n.y)) + geom_bar(stat = 'identity',aes(fill =POP2, group = POP2), position = position_dodge()) +theme_classic() + theme(axis.text.x=element_blank(), axis.line.x = element_blank(), axis.line.y = element_line(color = 'black'), axis.ticks.x = element_blank(), axis.title.x = element_blank(), axis.text.y = element_text(size = 16), axis.title.y = element_text(size=18), strip.text = element_text(size = 16)) + ylim(c(0,7)) + facet_wrap(~gene, switch = 'x') + theme(legend.position = 'bottom', legend.title = element_blank(), legend.text = element_text(size = 16))
 ```
 
