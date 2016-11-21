@@ -29,5 +29,8 @@ coreExome_nzm_selection.txt
 coreExome_ton_selection.txt
 coreExome_sam_selection.txt
 
+Unimputed_Analysis/CoreExome_selection_analysis/*txt
+Unimputed_Analysis/CoreExome_selection_analysis/*xlsx
+Unimputed_Analysis/CoreExome_selection_analysis/*RData
 # html files
 *.html
